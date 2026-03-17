@@ -27,6 +27,15 @@ export interface PlacedShip {
   cells: [number, number][];
 }
 
+// Informacja o polu statku przekazywana do komponentu Cell
+export interface CellShipInfo {
+  type: ShipType;
+  callsign: string;
+  orientation: Orientation;
+  partIndex: number;  // 0 = dziób (bow)
+  shipSize: number;
+}
+
 export const SHIP_DEFINITIONS: ShipDefinition[] = [
   { type: 'carrier',    name: 'Lotniskowiec', callsign: 'CVN',  size: 5, count: 1 },
   { type: 'battleship', name: 'Pancernik',    callsign: 'BB',   size: 4, count: 1 },

@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   SHIP_DEFINITIONS,
   type BoardGrid, type CellState,
-  type ShipType, type Orientation, type Phase, type PlacedShip,
+  type ShipType, type Orientation, type Phase, type PlacedShip, type CellShipInfo,
 } from '../types/board';
 
 function createEmptyBoard(): BoardGrid {
@@ -120,6 +120,28 @@ export function useBoardStore() {
     previewCells.length > 0 && isValidPlacement(previewCells, occupiedSet),
     [previewCells, occupiedSet]
   );
+
+  // Mapa: "row,col" → szczegóły pola statku (typ, orientacja, pozycja w statku)
+  const cellShipInfo = useMemo<Map<string, CellShipInfo>>(() => {
+    const map = new Map<string, CellShipInfo>();
+    for (const ship of placedShips) {
+      const def = SHIP_DEFINITIONS.find(d => d.type === ship.type)!;
+      // Orientacja: jeśli pierwsze dwa pola mają ten sam wiersz → poziomo
+      const orientation: Orientation =
+        ship.cells.length < 2 || ship.cells[0][0] === ship.cells[1][0]
+          ? 'horizontal' : 'vertical';
+      ship.cells.forEach(([r, c], i) => {
+        map.set(`${r},${c}`, {
+          type: ship.type,
+          callsign: def.callsign,
+          orientation,
+          partIndex: i,
+          shipSize: ship.cells.length,
+        });
+      });
+    }
+    return map;
+  }, [placedShips]);
 
   // Strefa wykluczenia — komórki sąsiadujące z postawionymi statkami
   const excludedCells = useMemo<Set<string>>(
@@ -279,7 +301,7 @@ export function useBoardStore() {
     grid, phase,
     selectedShip, orientation,
     previewCells, previewValid,
-    excludedCells,
+    excludedCells, cellShipInfo,
     remainingShips,
     allShipsPlaced,
     selectShip, toggleOrientation,

@@ -19,7 +19,7 @@ export default function App() {
     grid, phase,
     selectedShip, orientation,
     previewCells, previewValid,
-    excludedCells,
+    excludedCells, cellShipInfo,
     remainingShips, allShipsPlaced,
     selectShip, toggleOrientation,
     confirmReady, randomizePlacement,
@@ -97,6 +97,7 @@ export default function App() {
           <Board
             grid={grid}
             phase={phase}
+            cellShipInfo={cellShipInfo}
             previewCells={previewCells}
             previewValid={previewValid}
             excludedCells={excludedCells}
