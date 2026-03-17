@@ -18,22 +18,33 @@ export function useGameSync(session: GameSession, onBattleStart: () => void) {
     error: null,
   });
 
-  // Ref zapobiega stale closure w callbacku Realtime
   const onBattleStartRef = useRef(onBattleStart);
   onBattleStartRef.current = onBattleStart;
 
-  useEffect(() => {
-    // Sprawdź aktualny status gry przy montowaniu (obsługa reconnect)
-    supabase
+  // Idempotentne przejście do walki — nie wywołuj ponownie jeśli już przeszło
+  const battleStartedRef = useRef(false);
+  const triggerBattleStart = useCallback(() => {
+    if (battleStartedRef.current) return;
+    battleStartedRef.current = true;
+    onBattleStartRef.current();
+  }, []);
+
+  // Pomocnicza: odpytaj DB o status gry i uruchom walkę jeśli gotowa
+  const checkAndTrigger = useCallback(async () => {
+    if (battleStartedRef.current) return;
+    const { data } = await supabase
       .from('games')
       .select('status')
       .eq('id', session.gameId)
-      .single()
-      .then(({ data }) => {
-        if (data?.status === 'battle') onBattleStartRef.current();
-      });
+      .single();
+    if (data?.status === 'battle') triggerBattleStart();
+  }, [session.gameId, triggerBattleStart]);
 
-    // Sprawdź czy przeciwnik już zapisał swoją planszę
+  useEffect(() => {
+    // Sprawdź stan przy montowaniu (reconnect / odświeżenie strony)
+    checkAndTrigger();
+
+    // Sprawdź czy któryś gracz już zapisał swoją planszę
     supabase
       .from('boards')
       .select('player_id, is_ready')
@@ -46,7 +57,7 @@ export function useGameSync(session: GameSession, onBattleStart: () => void) {
         if (oppBoard?.is_ready) setState(s => ({ ...s, opponentReady: true }));
       });
 
-    // Subskrypcja zmian statusu gry → start walki
+    // Realtime: zmiana statusu gry → start walki
     const gamesCh = supabase
       .channel(`game_status:${session.gameId}`)
       .on(
@@ -54,12 +65,12 @@ export function useGameSync(session: GameSession, onBattleStart: () => void) {
         { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${session.gameId}` },
         payload => {
           const updated = payload.new as { status: string };
-          if (updated.status === 'battle') onBattleStartRef.current();
+          if (updated.status === 'battle') triggerBattleStart();
         },
       )
       .subscribe();
 
-    // Subskrypcja planszy — wykrywa gotowość przeciwnika
+    // Realtime: gotowość planszy przeciwnika
     const boardsCh = supabase
       .channel(`boards_ready:${session.gameId}`)
       .on(
@@ -69,6 +80,8 @@ export function useGameSync(session: GameSession, onBattleStart: () => void) {
           const board = payload.new as { player_id: string; is_ready: boolean };
           if (board.player_id !== session.playerId && board.is_ready) {
             setState(s => ({ ...s, opponentReady: true }));
+            // Gdy przeciwnik gotowy → sprawdź od razu czy gra już ruszyła
+            checkAndTrigger();
           }
         },
       )
@@ -78,14 +91,20 @@ export function useGameSync(session: GameSession, onBattleStart: () => void) {
       supabase.removeChannel(gamesCh);
       supabase.removeChannel(boardsCh);
     };
-  }, [session.gameId, session.playerId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session.gameId, session.playerId, checkAndTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Gracz potwierdza gotowość — zapisuje planszę i sprawdza czy można zacząć
+  // Polling zapasowy — działa gdy Realtime nie dostarczy zdarzenia
+  useEffect(() => {
+    if (!state.iAmReady) return;
+    const id = setInterval(checkAndTrigger, 2500);
+    return () => clearInterval(id);
+  }, [state.iAmReady, checkAndTrigger]);
+
+  // Gracz klika GOTOWY — zapisuje planszę i uruchamia walkę gdy obaj gotowi
   const submitReady = useCallback(async (ships: PlacedShip[]) => {
     setState(s => ({ ...s, isSubmitting: true, error: null }));
 
     try {
-      // Zapisz planszę (upsert — bezpieczne przy ponownym potwierdzeniu)
       const { error: boardError } = await supabase
         .from('boards')
         .upsert(
@@ -96,24 +115,26 @@ export function useGameSync(session: GameSession, onBattleStart: () => void) {
 
       setState(s => ({ ...s, iAmReady: true, isSubmitting: false }));
 
-      // Sprawdź czy obaj gracze są już gotowi → jeśli tak, startuj walkę
+      // Sprawdź czy obaj gotowi
       const { data: boards } = await supabase
         .from('boards')
         .select('is_ready')
         .eq('game_id', session.gameId);
 
       if (boards && boards.length === 2 && boards.every(b => b.is_ready)) {
-        // Aktualizacja statusu — wyzwoli Realtime u obu graczy
         const { error: gameError } = await supabase
           .from('games')
           .update({ status: 'battle', current_turn: 'player1' })
           .eq('id', session.gameId);
         if (gameError) throw gameError;
+
+        // Nie czekaj na Realtime — przejdź do walki od razu po aktualizacji DB
+        triggerBattleStart();
       }
     } catch (e) {
       setState(s => ({ ...s, isSubmitting: false, error: (e as Error).message }));
     }
-  }, [session.gameId, session.playerId]);
+  }, [session.gameId, session.playerId, triggerBattleStart]);
 
   return { ...state, submitReady };
 }
