@@ -1,5 +1,6 @@
 import Board from './components/Board';
 import ShipPanel from './components/ShipPanel';
+import KeyboardLegend from './components/KeyboardLegend';
 import { useBoardStore } from './store/boardStore';
 
 function BlinkCursor() {
@@ -51,7 +52,7 @@ export default function App() {
         </span>
       </div>
 
-      {/* Główny układ: panel boczny + plansza */}
+      {/* Główny układ: panel boczny + plansza + legenda skrótów */}
       <div className="flex items-start gap-8">
         <ShipPanel
           selectedShip={selectedShip}
@@ -104,6 +105,9 @@ export default function App() {
             </span>
           </div>
         </div>
+
+        {/* Legenda skrótów klawiszowych — prawa strona */}
+        <KeyboardLegend phase={phase} orientation={orientation} />
       </div>
 
       {/* Dolny HUD */}
