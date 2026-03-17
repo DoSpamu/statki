@@ -93,14 +93,14 @@ export default function KeyboardLegend({ phase, orientation }: KeyboardLegendPro
 
         <ShortcutRow
           keys={['↑', '↓', '←', '→']}
-          description="kursorem po siatce"
-          active={false}
+          description="przesuń kursor"
+          active={inPlacement}
         />
 
         <ShortcutRow
-          keys={['Enter', 'Space']}
-          description="potwierdź akcję"
-          active={false}
+          keys={['Enter', '⎵']}
+          description="postaw statek"
+          active={inPlacement}
         />
       </div>
 

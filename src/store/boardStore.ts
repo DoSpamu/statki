@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   SHIP_DEFINITIONS,
   type BoardGrid, type CellState,
@@ -96,6 +96,13 @@ export function useBoardStore() {
   const [orientation, setOrientation] = useState<Orientation>('horizontal');
   const [hoverCell, setHoverCell]     = useState<[number, number] | null>(null);
 
+  // Refs używane w event listenerze (unikają stale closure z deps: [])
+  const phaseRef          = useRef(phase);
+  phaseRef.current        = phase;
+  const placeshipRef      = useRef<() => void>(() => {});
+  // keyboardCursor=true gdy ostatni ruch kursora był klawiaturą — nie czyścimy wtedy na mouseLeave
+  const keyboardCursorRef = useRef(false);
+
   // Zbiór zajętych pól (dla szybkiego sprawdzania kolizji)
   const occupiedSet = useMemo<Set<string>>(() =>
     new Set(placedShips.flatMap(s => s.cells.map(([r, c]) => `${r},${c}`))),
@@ -129,16 +136,50 @@ export function useBoardStore() {
     [placedShips]
   );
 
-  // Skrót klawiszowy R – obrót statku
+  // Obsługa klawiatury — strzałki, R, Enter/Space
+  // Deps: [] — używamy refów żeby uniknąć stale closure
   useEffect(() => {
+    const ARROW_DELTAS: Record<string, [number, number]> = {
+      ArrowUp:    [-1,  0],
+      ArrowDown:  [ 1,  0],
+      ArrowLeft:  [ 0, -1],
+      ArrowRight: [ 0,  1],
+    };
+
     function onKeyDown(e: KeyboardEvent) {
+      if (phaseRef.current !== 'placement') return;
+
+      // R — obrót statku
       if (e.key === 'r' || e.key === 'R') {
         setOrientation(prev => prev === 'horizontal' ? 'vertical' : 'horizontal');
+        return;
+      }
+
+      // Strzałki — nawigacja po siatce, blokujemy domyślny scroll
+      if (ARROW_DELTAS[e.key]) {
+        e.preventDefault();
+        keyboardCursorRef.current = true;
+        const [dr, dc] = ARROW_DELTAS[e.key];
+        setHoverCell(prev => {
+          const [r, c] = prev ?? [0, 0];
+          return [
+            Math.max(0, Math.min(9, r + dr)),
+            Math.max(0, Math.min(9, c + dc)),
+          ];
+        });
+        return;
+      }
+
+      // Enter / Space — postaw statek w aktualnej pozycji
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        placeshipRef.current();
       }
     }
+
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectShip = useCallback((type: ShipType) => {
     setSelectedShip(type);
@@ -148,12 +189,15 @@ export function useBoardStore() {
     setOrientation(prev => prev === 'horizontal' ? 'vertical' : 'horizontal');
   }, []);
 
+  // Mysz wchodzi na pole — przechwytuje kursor od klawiatury
   const handleCellHover = useCallback((row: number, col: number) => {
+    keyboardCursorRef.current = false;
     setHoverCell([row, col]);
   }, []);
 
+  // Mysz opuszcza planszę — czyścimy tylko jeśli kursor nie jest klawiaturowy
   const handleBoardLeave = useCallback(() => {
-    setHoverCell(null);
+    if (!keyboardCursorRef.current) setHoverCell(null);
   }, []);
 
   // Kliknięcie podczas rozstawiania — stawia statek
@@ -183,6 +227,8 @@ export function useBoardStore() {
       });
       setSelectedShip(next?.type ?? null);
     }
+
+    placeshipRef.current = placeship; // Aktualizuj ref zaraz po definicji
 
     // Po postawieniu wszystkich statków odznacz selekcję — gracz musi kliknąć GOTOWY
     const totalToPlace = SHIP_DEFINITIONS.reduce((sum, d) => sum + d.count, 0);
