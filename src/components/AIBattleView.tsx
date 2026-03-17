@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import Board from './Board';
 import VictoryOverlay from './VictoryOverlay';
 import { useAIBattle } from '../lib/useAIBattle';
+import { useBattleSounds } from '../lib/useBattleSounds';
+import { playFire } from '../lib/soundEngine';
 import { SHIP_DEFINITIONS } from '../types/board';
 import type { BoardGrid, CellShipInfo, PlacedShip } from '../types/board';
 
@@ -119,6 +121,8 @@ export default function AIBattleView({
     myShotCount, battleStartTime, myHits, theirHits,
   } = useAIBattle(placedShips, applyIncomingShot);
 
+  useBattleSounds(opponentGrid, myGrid, sunkOpponentCells);
+
   const TOTAL = 17;
 
   // Wykrywanie zatopionych moich statków
@@ -206,8 +210,10 @@ export default function AIBattleView({
               previewValid={false}
               excludedCells={new Set()}
               onCellClick={(r, c) => {
-                if (isMyTurn && !isFiring && opponentGrid[r][c].state === 'empty')
+                if (isMyTurn && !isFiring && opponentGrid[r][c].state === 'empty') {
+                  playFire();
                   fireAtOpponent(r, c);
+                }
               }}
               onCellHover={() => {}}
               onBoardLeave={() => {}}

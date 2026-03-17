@@ -1,3 +1,6 @@
+import { useEffect } from 'react';
+import { playVictory, playDefeat } from '../lib/soundEngine';
+
 interface Stats {
   shots: number;
   durationMs: number;
@@ -17,6 +20,14 @@ function formatDuration(ms: number): string {
 }
 
 export default function VictoryOverlay({ onReset, isWinner = true, stats }: VictoryOverlayProps) {
+  useEffect(() => {
+    // Krótkie opóźnienie — czekaj na błysk nuklearny zanim zagra fanfara
+    const id = setTimeout(() => {
+      if (isWinner) playVictory(); else playDefeat();
+    }, 600);
+    return () => clearTimeout(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col items-center justify-center font-mono"

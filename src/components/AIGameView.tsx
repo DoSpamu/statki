@@ -1,8 +1,11 @@
+import { useEffect, useRef } from 'react';
 import Board from './Board';
 import ShipPanel from './ShipPanel';
 import KeyboardLegend from './KeyboardLegend';
 import AIBattleView from './AIBattleView';
+import SoundToggle from './SoundToggle';
 import { useBoardStore } from '../store/boardStore';
+import { playPlaceShip, playReady, playRandomize, playClick } from '../lib/soundEngine';
 
 interface AIGameViewProps {
   playerName: string;
@@ -23,8 +26,15 @@ export default function AIGameView({ playerName, onReturnToLobby }: AIGameViewPr
     resetGame,
   } = useBoardStore();
 
+  // Dźwięk przy postawieniu statku
+  const prevPlacedCountRef = useRef(0);
+  useEffect(() => {
+    if (placedShips.length > prevPlacedCountRef.current) playPlaceShip();
+    prevPlacedCountRef.current = placedShips.length;
+  }, [placedShips.length]);
+
   function handleConfirmReady() {
-    if (allShipsPlaced) forceBattlePhase();
+    if (allShipsPlaced) { playReady(); forceBattlePhase(); }
   }
 
   function handleReset() {
@@ -47,6 +57,7 @@ export default function AIGameView({ playerName, onReturnToLobby }: AIGameViewPr
         >
           ◉ AI ACTIVE
         </span>
+        <SoundToggle />
       </div>
 
       {/* Tytuł */}
@@ -78,7 +89,7 @@ export default function AIGameView({ playerName, onReturnToLobby }: AIGameViewPr
             onSelectShip={selectShip}
             onToggleOrientation={toggleOrientation}
             onConfirmReady={handleConfirmReady}
-            onRandomize={randomizePlacement}
+            onRandomize={() => { playRandomize(); randomizePlacement(); }}
           />
 
           <div className="flex flex-col items-center gap-3">
@@ -140,7 +151,7 @@ export default function AIGameView({ playerName, onReturnToLobby }: AIGameViewPr
           ● {phase === 'placement' ? 'DEPLOYING FLEET' : 'BATTLE ACTIVE'}
         </span>
         <button
-          onClick={onReturnToLobby}
+          onClick={() => { playClick(); onReturnToLobby(); }}
           className="text-[#3a5818] hover:text-[#6a9a20] tracking-widest uppercase transition-colors"
         >
           ← LOBBY

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Board from './components/Board';
 import ShipPanel from './components/ShipPanel';
 import KeyboardLegend from './components/KeyboardLegend';
@@ -6,9 +6,11 @@ import WaitingOverlay from './components/WaitingOverlay';
 import BattleView from './components/BattleView';
 import LobbyScreen from './components/LobbyScreen';
 import AIGameView from './components/AIGameView';
+import SoundToggle from './components/SoundToggle';
 import { useBoardStore } from './store/boardStore';
 import { useGameSync } from './lib/useGameSync';
 import { useSupabaseStatus } from './lib/useSupabaseStatus';
+import { playPlaceShip, playReady, playRandomize, playClick } from './lib/soundEngine';
 import type { GameSession } from './types/lobby';
 
 type GameMode =
@@ -69,8 +71,15 @@ function GameView({ session, onReturnToLobby }: GameViewProps) {
 
   const sync = useGameSync(session, forceBattlePhase);
 
+  // Dźwięk przy postawieniu statku
+  const prevPlacedCountRef = useRef(0);
+  useEffect(() => {
+    if (placedShips.length > prevPlacedCountRef.current) playPlaceShip();
+    prevPlacedCountRef.current = placedShips.length;
+  }, [placedShips.length]);
+
   function handleConfirmReady() {
-    if (allShipsPlaced) sync.submitReady(placedShips);
+    if (allShipsPlaced) { playReady(); sync.submitReady(placedShips); }
   }
 
   function handleReset() {
@@ -106,6 +115,7 @@ function GameView({ session, onReturnToLobby }: GameViewProps) {
           {status === 'error' && (
             <span className="text-[#cc3010]" title={errorMessage ?? ''}>✕ DB ERROR</span>
           )}
+          <SoundToggle />
         </div>
 
         {/* Tytuł */}
@@ -134,7 +144,7 @@ function GameView({ session, onReturnToLobby }: GameViewProps) {
               onSelectShip={selectShip}
               onToggleOrientation={toggleOrientation}
               onConfirmReady={handleConfirmReady}
-              onRandomize={randomizePlacement}
+              onRandomize={() => { playRandomize(); randomizePlacement(); }}
             />
 
             <div className="flex flex-col items-center gap-3">
@@ -197,7 +207,7 @@ function GameView({ session, onReturnToLobby }: GameViewProps) {
             ● {phase === 'placement' ? 'DEPLOYING FLEET' : 'BATTLE ACTIVE'}
           </span>
           <button
-            onClick={onReturnToLobby}
+            onClick={() => { playClick(); onReturnToLobby(); }}
             className="text-[#3a5818] hover:text-[#6a9a20] tracking-widest uppercase transition-colors"
           >
             ← LOBBY

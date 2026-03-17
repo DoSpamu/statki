@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { createGame, joinGame, getStoredPlayerName, savePlayerName } from '../lib/gameService';
 import { supabase } from '../lib/supabase';
+import SoundToggle from './SoundToggle';
+import { playClick } from '../lib/soundEngine';
 import type { GameSession } from '../types/lobby';
 
 type LobbyState = 'idle' | 'creating' | 'waiting' | 'joining' | 'error';
@@ -70,6 +72,7 @@ export default function LobbyScreen({ onGameStart, onAIStart }: LobbyScreenProps
 
   async function handleCreate() {
     if (!validateName()) return;
+    playClick();
     setLobbyState('creating');
     setErrorMsg('');
     try {
@@ -85,6 +88,7 @@ export default function LobbyScreen({ onGameStart, onAIStart }: LobbyScreenProps
 
   async function handleJoin() {
     if (!validateName()) return;
+    playClick();
     if (!joinCode.trim()) {
       setErrorMsg('Wpisz kod pokoju.');
       return;
@@ -121,6 +125,7 @@ export default function LobbyScreen({ onGameStart, onAIStart }: LobbyScreenProps
 
   function handleAIStart() {
     if (!validateName()) return;
+    playClick();
     onAIStart(playerName.trim());
   }
 
@@ -137,7 +142,7 @@ export default function LobbyScreen({ onGameStart, onAIStart }: LobbyScreenProps
       <div className="w-full max-w-xl flex items-center justify-between text-[10px] text-[#4a6a18] tracking-widest uppercase border-b border-[#1e2e10] pb-2">
         <span>SYS: ONLINE</span>
         <span className="text-[#6a9a20]">◈ LOBBY ACTIVE</span>
-        <span>V1.0</span>
+        <SoundToggle />
       </div>
 
       {/* Tytuł */}

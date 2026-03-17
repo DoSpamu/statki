@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import Board from './Board';
 import VictoryOverlay from './VictoryOverlay';
 import { useBattleSync } from '../lib/useBattleSync';
+import { useBattleSounds } from '../lib/useBattleSounds';
+import { playFire } from '../lib/soundEngine';
 import { SHIP_DEFINITIONS } from '../types/board';
 import type { BoardGrid, CellShipInfo, PlacedShip } from '../types/board';
 import type { GameSession } from '../types/lobby';
@@ -140,6 +142,8 @@ export default function BattleView({
     myShotCount, battleStartTime, myHits, theirHits,
   } = useBattleSync(session, applyIncomingShot);
 
+  useBattleSounds(opponentGrid, myGrid, sunkOpponentCells);
+
   const TOTAL = 17; // 5+4+3+3+2
 
   // Wykrywanie zatopionych moich statków
@@ -238,8 +242,10 @@ export default function BattleView({
               previewValid={false}
               excludedCells={new Set()}
               onCellClick={(r, c) => {
-                if (isMyTurn && !isFiring && opponentGrid[r][c].state === 'empty')
+                if (isMyTurn && !isFiring && opponentGrid[r][c].state === 'empty') {
+                  playFire();
                   fireAtOpponent(r, c);
+                }
               }}
               onCellHover={() => {}}
               onBoardLeave={() => {}}
