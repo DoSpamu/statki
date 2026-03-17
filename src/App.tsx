@@ -2,6 +2,7 @@ import Board from './components/Board';
 import ShipPanel from './components/ShipPanel';
 import KeyboardLegend from './components/KeyboardLegend';
 import { useBoardStore } from './store/boardStore';
+import { useSupabaseStatus } from './lib/useSupabaseStatus';
 
 function BlinkCursor() {
   return (
@@ -13,6 +14,7 @@ function BlinkCursor() {
 }
 
 export default function App() {
+  const { status, gamesCount, errorMessage } = useSupabaseStatus();
   const {
     grid, phase,
     selectedShip, orientation,
@@ -33,7 +35,22 @@ export default function App() {
       <div className="w-full max-w-max flex items-center justify-between gap-12 text-[10px] text-[#4a6a18] tracking-widest uppercase border-b border-[#1e2e10] pb-2">
         <span>SYS: ONLINE</span>
         <span className="text-[#6a9a20]">◈ GRID ACTIVE</span>
-        <span>SECURE CHANNEL</span>
+        {/* Wskaźnik połączenia z Supabase */}
+        {status === 'checking' && (
+          <span className="text-[#4a6a18]" style={{ animation: 'bf-pulse 1s ease-in-out infinite' }}>
+            ◌ DB CONNECTING…
+          </span>
+        )}
+        {status === 'online' && (
+          <span className="text-[#a8cc30]">
+            ● DB ONLINE · GAMES: {gamesCount}
+          </span>
+        )}
+        {status === 'error' && (
+          <span className="text-[#cc3010]" title={errorMessage ?? ''}>
+            ✕ DB ERROR
+          </span>
+        )}
       </div>
 
       {/* Tytuł */}
