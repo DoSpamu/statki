@@ -3,12 +3,20 @@ import type { BoardGrid, CellState, Phase, CellShipInfo, ShipType } from '../typ
 const ROW_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 const COL_LABELS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 
-// ─── Paleta wizualna statków (BF/Fallout) ────────────────────────────────────
+// ─── Paleta wizualna statków — militarna oliwa ───────────────────────────────
 const SHIP_PALETTE: Record<ShipType, { bg: string; accent: string }> = {
-  carrier:    { bg: '#0a1c38', accent: '#5a90d8' }, // stalowy błękit — lotniskowiec
-  battleship: { bg: '#201400', accent: '#d47c0a' }, // spalone złoto — pancernik
-  cruiser:    { bg: '#082818', accent: '#2eb84a' }, // zieleń operacyjna — krążownik
-  destroyer:  { bg: '#1c0828', accent: '#c038c0' }, // fiolet stealth — niszczyciel
+  carrier:    { bg: '#111a07', accent: '#88b825' }, // oliwkowy kamuflaż — lotniskowiec
+  battleship: { bg: '#0b1205', accent: '#4a7818' }, // ciemna oliwa (styl sub) — pancernik
+  cruiser:    { bg: '#101607', accent: '#70a020' }, // średnia oliwa — krążownik
+  destroyer:  { bg: '#111a07', accent: '#a8cc30' }, // jasna oliwa — niszczyciel
+};
+
+// Kolory struktury kadłuba per typ
+const SHIP_HULL_COLORS: Record<ShipType, { hull: string; panel: string; line: string }> = {
+  carrier:    { hull: '#3a4e16', panel: '#2c3e10', line: '#1e2c0a' },
+  battleship: { hull: '#1a2a08', panel: '#131e06', line: '#0c1404' },
+  cruiser:    { hull: '#304010', panel: '#22300c', line: '#161e08' },
+  destroyer:  { hull: '#3c5016', panel: '#2a3c10', line: '#1c2a08' },
 };
 
 const STATE_CSS: Record<CellState, string> = {
@@ -18,32 +26,49 @@ const STATE_CSS: Record<CellState, string> = {
   miss:  'bf-miss',
 };
 
-// ─── SVG nakładka statku — widok z góry, realistyczna sylwetka ───────────────
+// ─── SVG nakładka statku — widok z góry, styl militarny ─────────────────────
 function ShipDecal({ type, callsign, orientation, partIndex, shipSize }: CellShipInfo) {
   const { accent } = SHIP_PALETTE[type];
+  const { hull, panel, line } = SHIP_HULL_COLORS[type];
+
   const isHead   = partIndex === 0;
   const isTail   = partIndex === shipSize - 1;
   const isSolo   = shipSize === 1;
-  const isHoriz  = orientation === 'horizontal';
   const isCenter = partIndex === Math.floor(shipSize / 2);
+  const isHoriz  = orientation === 'horizontal';
 
-  // Kadłub zajmuje całe pole; dziób/rufa mają zaokrąglone końce
-  // Współrzędne dla orientacji poziomej (obrót SVG dla pionowej)
-  const hullY1 = 18, hullY2 = 30; // szerokość kadłuba (symetrycznie)
-  const hullMid = 24;
+  // Granice kadłuba per typ (y od góry, statek biegnie poziomo)
+  const Y: Record<ShipType, [number, number]> = {
+    carrier:    [10, 38],
+    battleship: [11, 37],
+    cruiser:    [14, 34],
+    destroyer:  [16, 32],
+  };
+  const [y1, y2] = Y[type];
+  const yMid = 24;
+  const hh = y2 - y1; // wysokość kadłuba
 
-  // Krawędzie dzioba i rufy (zaostrzenie)
-  const bowX   = isHead  ? (isSolo ? 6  : 2)  : 0;
-  const sternX = isTail  ? (isSolo ? 42 : 46) : 48;
+  // ─── Kształt kadłuba ──────────────────────────────────────────────────────
+  let hullPts: string;
+  if (isSolo) {
+    hullPts = `5,${yMid} 9,${y1} 39,${y1} 43,${yMid} 39,${y2} 9,${y2}`;
+  } else if (isHead) {
+    const bx = type === 'cruiser' ? 3 : type === 'battleship' ? 7 : type === 'destroyer' ? 5 : 9;
+    const bw = type === 'cruiser' ? 9 : 10;
+    hullPts = `${bx},${yMid} ${bx + bw},${y1} 48,${y1} 48,${y2} ${bx + bw},${y2}`;
+  } else if (isTail) {
+    const tw = type === 'battleship' ? 9 : type === 'carrier' ? 9 : 7;
+    hullPts = `0,${y1} ${48 - tw},${y1} ${48 - tw + 5},${yMid} ${48 - tw},${y2} 0,${y2}`;
+  } else {
+    hullPts = `0,${y1} 48,${y1} 48,${y2} 0,${y2}`;
+  }
 
-  // Wielokąt kadłuba — trapez ze zwężeniem na dziobowej stronie
-  const hullPoly = isHead && !isSolo
-    ? `${bowX},${hullMid} 6,${hullY1} 48,${hullY1} 48,${hullY2} 6,${hullY2}`
-    : isTail && !isSolo
-    ? `0,${hullY1} ${sternX},${hullY1} ${sternX - 4},${hullMid} ${sternX},${hullY2} 0,${hullY2}`
-    : isSolo
-    ? `${bowX},${hullMid} 8,${hullY1} ${sternX - 4},${hullY1} ${sternX},${hullMid} ${sternX - 4},${hullY2} 8,${hullY2}`
-    : `0,${hullY1} 48,${hullY1} 48,${hullY2} 0,${hullY2}`;
+  // Pionowe linie podziału paneli (siatka pancerna)
+  const panelXs = type === 'carrier'
+    ? [10, 20, 30, 40]
+    : type === 'battleship'
+    ? [12, 24, 36]
+    : [12, 28];
 
   return (
     <svg
@@ -51,98 +76,193 @@ function ShipDecal({ type, callsign, orientation, partIndex, shipSize }: CellShi
       className="absolute inset-0 w-full h-full pointer-events-none"
       style={isHoriz ? undefined : { transform: 'rotate(90deg)', transformOrigin: '50% 50%' }}
     >
-      {/* ── Kadłub główny ── */}
-      <polygon points={hullPoly} fill={accent} opacity={0.18} />
-      <polygon points={hullPoly} fill="none" stroke={accent} strokeWidth={1.2} opacity={0.55} />
+      {/* ── Kadłub ── */}
+      <polygon points={hullPts} fill={hull} />
+      {/* Wewnętrzna poświata akcentu */}
+      <polygon points={hullPts} fill={accent} opacity="0.05" />
+      {/* Obrys — gruba ciemna, cienka jasna */}
+      <polygon points={hullPts} fill="none" stroke={line} strokeWidth="1.5" />
+      <polygon points={hullPts} fill="none" stroke={accent} strokeWidth="0.5" opacity="0.45" />
 
-      {/* ── Linia kilu (oś środkowa) ── */}
-      <line x1={0} y1={hullMid} x2={48} y2={hullMid}
-        stroke={accent} strokeWidth={0.8} opacity={0.3} />
+      {/* ── Siatka paneli ── */}
+      {panelXs.map(x => (
+        <line key={x} x1={x} y1={y1} x2={x} y2={y2}
+          stroke={line} strokeWidth="0.7" opacity="0.9" />
+      ))}
+      {/* Poziome linie podziału */}
+      <line x1={isHead ? (type === 'cruiser' ? 12 : 18) : 0} y1={y1 + hh / 3}
+            x2={isTail ? 40 : 48} y2={y1 + hh / 3}
+        stroke={line} strokeWidth="0.6" opacity="0.8" />
+      <line x1={isHead ? (type === 'cruiser' ? 12 : 18) : 0} y1={y1 + 2 * hh / 3}
+            x2={isTail ? 40 : 48} y2={y1 + 2 * hh / 3}
+        stroke={line} strokeWidth="0.6" opacity="0.8" />
 
-      {/* ── Pokład — linia wzdłuż statku ── */}
-      <line x1={isHead ? bowX + 4 : 0} y1={hullMid}
-            x2={isTail ? sternX - 4 : 48} y2={hullMid}
-        stroke={accent} strokeWidth={2} opacity={0.7} />
+      {/* ═══════════════════════════════════════════════════════════════════
+          Detale per TYP
+          ═══════════════════════════════════════════════════════════════ */}
 
-      {/* ── Dziób — zaostrzony trójkąt ── */}
-      {(isHead || isSolo) && (
-        <polygon
-          points={`${bowX},${hullMid} 10,${hullY1 + 1} 10,${hullY2 - 1}`}
-          fill={accent} opacity={0.75}
-        />
-      )}
-
-      {/* ── Rufa — śruba napędowa ── */}
-      {(isTail || isSolo) && (
+      {/* ─── LOTNISKOWIEC (szeroki, siatka pancerna, wyspa, pas startowy) ─ */}
+      {type === 'carrier' && (
         <>
-          <rect x={sternX - 6} y={hullY1 + 2} width={5} height={hullY2 - hullY1 - 4}
-            fill={accent} opacity={0.5} rx={1} />
-          {/* Śruba: dwa łuki symbolizujące łopaty */}
-          <circle cx={sternX - 3} cy={hullMid - 3} r={2}
-            fill="none" stroke={accent} strokeWidth={1} opacity={0.6} />
-          <circle cx={sternX - 3} cy={hullMid + 3} r={2}
-            fill="none" stroke={accent} strokeWidth={1} opacity={0.6} />
+          {/* Pas startowy — przerywaną linią blisko górnej krawędzi */}
+          <line
+            x1={isHead ? 20 : 0} y1={y1 + 5}
+            x2={isTail ? 38 : 48} y2={y1 + 5}
+            stroke={accent} strokeWidth="1.4" opacity="0.5" strokeDasharray="5 3"
+          />
+          {/* Wyspa — superstruktura w komórce centralnej */}
+          {isCenter && (
+            <>
+              <rect x={4} y={y1 - 1} width={24} height={10} fill={panel} stroke={accent} strokeWidth="0.8" />
+              <rect x={6} y={y1 + 1} width={4} height={6} fill={accent} opacity="0.3" />
+              <rect x={12} y={y1 + 1} width={5} height={6} fill={accent} opacity="0.25" />
+              <rect x={19} y={y1 + 1} width={5} height={6} fill={accent} opacity="0.3" />
+              {/* Maszt radarowy */}
+              <line x1={11} y1={y1 - 1} x2={11} y2={y1 - 7} stroke={accent} strokeWidth="0.9" opacity="0.8" />
+              <line x1={8}  y1={y1 - 6} x2={14} y2={y1 - 6} stroke={accent} strokeWidth="0.7" opacity="0.55" />
+              <line x1={11} y1={y1 - 6} x2={11} y2={y1 - 4} stroke={accent} strokeWidth="0.7" opacity="0.55" />
+            </>
+          )}
+          {/* Winda na rufie */}
+          {isTail && (
+            <rect x={5} y={y2 - 10} width={16} height={8}
+              fill={panel} stroke={accent} strokeWidth="0.7" opacity="0.75" />
+          )}
         </>
       )}
 
-      {/* ── Nadbudówka zależna od typu statku ── */}
-
-      {/* Lotniskowiec — pas startowy wzdłuż pokładu */}
-      {type === 'carrier' && isCenter && (
+      {/* ─── PANCERNIK (ciemny owalny kadłub, ośmiokątne wieżyczki) ──────── */}
+      {type === 'battleship' && (
         <>
-          <rect x={10} y={hullY1} width={28} height={3}
-            fill={accent} opacity={0.35} />
-          <line x1={12} y1={hullY1 + 1.5} x2={36} y2={hullY1 + 1.5}
-            stroke={accent} strokeWidth={0.6} strokeDasharray="3 2" opacity={0.7} />
+          {isHead && (
+            // Dziobowa wieżyczka — trapezoid
+            <polygon
+              points={`12,${yMid} 16,${y1 + 4} 32,${y1 + 4} 32,${y2 - 4} 16,${y2 - 4}`}
+              fill={panel} stroke={accent} strokeWidth="0.8" opacity="0.9"
+            />
+          )}
+          {!isHead && !isTail && (
+            // Główna wieżyczka — duży ośmiokąt
+            <>
+              <polygon
+                points={`5,${yMid} 9,${y1 + 3} 39,${y1 + 3} 43,${yMid} 39,${y2 - 3} 9,${y2 - 3}`}
+                fill={panel} stroke={accent} strokeWidth="0.9" opacity="0.85"
+              />
+              <polygon
+                points={`13,${yMid} 16,${y1 + 7} 32,${y1 + 7} 35,${yMid} 32,${y2 - 7} 16,${y2 - 7}`}
+                fill={hull} stroke={accent} strokeWidth="0.6" opacity="0.7"
+              />
+              {/* Centralny element wieżyczki */}
+              <rect x={19} y={yMid - 4} width={10} height={8} rx="1"
+                fill={accent} opacity="0.25" stroke={accent} strokeWidth="0.5" />
+              <line x1={24} y1={yMid - 7} x2={24} y2={yMid + 7}
+                stroke={accent} strokeWidth="0.7" opacity="0.5" />
+            </>
+          )}
+          {isTail && (
+            // Rufowa wieżyczka
+            <polygon
+              points={`16,${y1 + 4} 32,${y1 + 4} 36,${yMid} 32,${y2 - 4} 16,${y2 - 4}`}
+              fill={panel} stroke={accent} strokeWidth="0.8" opacity="0.9"
+            />
+          )}
         </>
       )}
 
-      {/* Pancernik — 2 wieżyczki armatnie */}
-      {type === 'battleship' && (isHead || isTail) && (
-        <circle cx={isHead ? 16 : 32} cy={hullMid} r={4}
-          fill={accent} opacity={0.45}
-          stroke={accent} strokeWidth={0.8}
-        />
-      )}
-      {type === 'battleship' && isCenter && (
-        <circle cx={24} cy={hullMid} r={3}
-          fill={accent} opacity={0.35}
-          stroke={accent} strokeWidth={0.8}
-        />
-      )}
-
-      {/* Krążownik — mostek dowodzenia (prostokąt na środku) */}
-      {type === 'cruiser' && isCenter && (
-        <rect x={16} y={hullY1 + 2} width={16} height={hullY2 - hullY1 - 4}
-          fill={accent} opacity={0.4} rx={1}
-          stroke={accent} strokeWidth={0.7}
-        />
-      )}
-
-      {/* Niszczyciel — linia torpedowa + sonar */}
-      {type === 'destroyer' && isCenter && (
+      {/* ─── KRĄŻOWNIK (zaostrzony dziób, wieżyczka, śruby) ─────────────── */}
+      {type === 'cruiser' && (
         <>
-          <circle cx={24} cy={hullMid} r={5}
-            fill="none" stroke={accent} strokeWidth={0.9} opacity={0.45}
-            strokeDasharray="2.5 2"
-          />
-          <circle cx={24} cy={hullMid} r={1.5}
-            fill={accent} opacity={0.6}
-          />
+          {isHead && (
+            // Ostry dziób z trójkątem + frontalny kadłub
+            <>
+              <polygon
+                points={`3,${yMid} 12,${y1} 32,${y1} 32,${y2} 12,${y2}`}
+                fill={panel} stroke={accent} strokeWidth="0.7" opacity="0.8"
+              />
+              {/* Ostry punkt dziobu */}
+              <polygon
+                points={`3,${yMid} 10,${y1 + 4} 10,${y2 - 4}`}
+                fill={accent} opacity="0.6"
+              />
+            </>
+          )}
+          {!isHead && !isTail && (
+            // Ośmiokątna wieżyczka główna + lufa
+            <>
+              <polygon
+                points={`6,${yMid} 10,${y1 + 2} 38,${y1 + 2} 42,${yMid} 38,${y2 - 2} 10,${y2 - 2}`}
+                fill={panel} stroke={accent} strokeWidth="0.8" opacity="0.85"
+              />
+              <rect x={16} y={yMid - 5} width={16} height={10} rx="1"
+                fill={hull} stroke={accent} strokeWidth="0.6" opacity="0.8"
+              />
+              {/* Lufa — pozioma linia */}
+              <line x1={2} y1={yMid} x2={16} y2={yMid}
+                stroke={accent} strokeWidth="1.4" opacity="0.65" />
+            </>
+          )}
+          {isTail && (
+            // Tylna nadbudówka + śruby
+            <>
+              <rect x={6} y={y1 + 3} width={22} height={hh - 6} rx="1"
+                fill={panel} stroke={accent} strokeWidth="0.7" opacity="0.8"
+              />
+              <circle cx={35} cy={yMid - 4} r="3.5"
+                fill="none" stroke={accent} strokeWidth="0.8" opacity="0.65" />
+              <circle cx={35} cy={yMid + 4} r="3.5"
+                fill="none" stroke={accent} strokeWidth="0.8" opacity="0.65" />
+            </>
+          )}
+        </>
+      )}
+
+      {/* ─── NISZCZYCIEL (owalny/teardrop, wieżyczka, śruby) ────────────── */}
+      {type === 'destroyer' && (
+        <>
+          {(isHead || isSolo) && (
+            // Owalny dziób z armatą
+            <>
+              <ellipse
+                cx={isSolo ? 22 : 20} cy={yMid}
+                rx={isSolo ? 14 : 13} ry={hh / 2 - 1}
+                fill={panel} stroke={accent} strokeWidth="0.8" opacity="0.8"
+              />
+              {/* Ośmiokątna wieżyczka */}
+              <polygon
+                points={`${isSolo ? 13 : 11},${yMid} ${isSolo ? 15 : 13},${yMid - 5} ${isSolo ? 21 : 19},${yMid - 5} ${isSolo ? 23 : 21},${yMid} ${isSolo ? 21 : 19},${yMid + 5} ${isSolo ? 15 : 13},${yMid + 5}`}
+                fill={hull} stroke={accent} strokeWidth="0.7" opacity="0.9"
+              />
+              {/* Antena/maszt */}
+              {!isSolo && (
+                <>
+                  <line x1={20} y1={y1} x2={20} y2={y1 - 6} stroke={accent} strokeWidth="0.9" opacity="0.75" />
+                  <line x1={17} y1={y1 - 5} x2={23} y2={y1 - 5} stroke={accent} strokeWidth="0.7" opacity="0.5" />
+                </>
+              )}
+            </>
+          )}
+          {(isTail || isSolo) && !isHead && (
+            // Rufowy prostokąt + śruby
+            <>
+              <rect x={5} y={y1 + 2} width={22} height={hh - 4} rx="1"
+                fill={panel} stroke={accent} strokeWidth="0.7" opacity="0.8"
+              />
+              <circle cx={33} cy={yMid - 3} r="3"
+                fill="none" stroke={accent} strokeWidth="0.8" opacity="0.65" />
+              <circle cx={33} cy={yMid + 3} r="3"
+                fill="none" stroke={accent} strokeWidth="0.8" opacity="0.65" />
+            </>
+          )}
         </>
       )}
 
       {/* ── Callsign na środku ── */}
       {isCenter && (
         <text
-          x={24} y={hullY2 + 9}
-          textAnchor="middle"
-          fontSize={6}
-          fill={accent}
-          opacity={0.75}
-          fontFamily="monospace"
-          fontWeight="bold"
-          letterSpacing={0.5}
+          x={24} y={y2 + 9}
+          textAnchor="middle" fontSize="6"
+          fill={accent} opacity="0.7"
+          fontFamily="monospace" fontWeight="bold" letterSpacing="0.5"
         >
           {callsign}
         </text>

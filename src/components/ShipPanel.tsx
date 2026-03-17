@@ -16,7 +16,7 @@ interface ShipItemProps {
 }
 
 function ShipItem({
-  callsign, name, size,
+  type, callsign, name, size,
   remaining, placed, total,
   isSelected, isDeployed,
   orientation, onSelect,
@@ -55,22 +55,33 @@ function ShipItem({
         </span>
       </div>
 
-      {/* Wizualizacja statku — pola */}
+      {/* Wizualizacja statku — uproszczone pole z akcentem per typ */}
       <div className={`flex gap-0.5 ${orientation === 'vertical' ? 'flex-col' : 'flex-row'}`}>
-        {Array.from({ length: size }).map((_, i) => (
+        {Array.from({ length: size }).map((_, i) => {
+          const shipHull: Record<string, string> = {
+            carrier: '#3a4e16', battleship: '#1a2a08', cruiser: '#304010', destroyer: '#3c5016',
+          };
+          const shipAccent: Record<string, string> = {
+            carrier: '#88b825', battleship: '#4a7818', cruiser: '#70a020', destroyer: '#a8cc30',
+          };
+          const isFirstOrLast = i === 0 || i === size - 1;
+          const cellStyle = isDeployed
+            ? undefined
+            : isSelected
+              ? { backgroundColor: shipHull[type], borderColor: shipAccent[type] + (isFirstOrLast ? 'cc' : '88'), boxShadow: `inset 0 0 4px ${shipAccent[type]}22` }
+              : { backgroundColor: shipHull[type] + 'bb', borderColor: shipAccent[type] + '44' };
+          return (
           <div
             key={i}
+            style={cellStyle}
             className={[
               'border transition-colors',
               orientation === 'vertical' ? 'w-4 h-3' : 'w-4 h-4',
-              isDeployed
-                ? 'bg-[#1a2a08] border-[#2a4010]'
-                : isSelected
-                  ? 'bg-[#3a5820] border-[#7aaa30] shadow-[0_0_4px_rgba(120,180,40,0.4)]'
-                  : 'bg-[#1e2e10] border-[#3a5020]',
+              isDeployed ? 'bg-[#1a2a08] border-[#2a4010]' : '',
             ].join(' ')}
           />
-        ))}
+          );
+        })}
       </div>
 
       {/* Liczba pól */}
