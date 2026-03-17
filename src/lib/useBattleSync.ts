@@ -46,6 +46,8 @@ export function useBattleSync(
   const applyIncomingShotRef = useRef(applyIncomingShot);
   applyIncomingShotRef.current = applyIncomingShot;
   const opponentOccupiedRef = useRef<Set<string>>(new Set());
+  // Strzały już zastosowane optymistycznie — Realtime nie powinien ich ponownie naliczać
+  const pendingShotsRef = useRef<Set<string>>(new Set());
 
   const isMyTurn =
     (session.playerSlot === 'player1' && currentTurn === 'player1') ||
@@ -113,7 +115,13 @@ export function useBattleSync(
         payload => {
           const shot = payload.new as ShotRow;
           if (shot.shooter_id === session.playerId) {
-            // Mój strzał potwierdzony przez DB
+            const key = `${shot.target_row},${shot.target_col}`;
+            if (pendingShotsRef.current.has(key)) {
+              // Już zastosowano optymistycznie — tylko usuń z kolejki oczekujących
+              pendingShotsRef.current.delete(key);
+              return;
+            }
+            // Fallback (np. po reconnect — strzał z historii)
             setOpponentGrid(prev =>
               applyCell(prev, shot.target_row, shot.target_col, shot.is_hit ? 'hit' : 'miss'),
             );
@@ -148,11 +156,15 @@ export function useBattleSync(
   }, [session.gameId, session.playerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fireAtOpponent = useCallback(async (row: number, col: number) => {
+    const isHit = opponentOccupiedRef.current.has(`${row},${col}`);
+
+    // Optymistyczna aktualizacja — natychmiastowa odpowiedź wizualna przed potwierdzeniem DB
+    setOpponentGrid(prev => applyCell(prev, row, col, isHit ? 'hit' : 'miss'));
+    if (isHit) setMyHits(c => c + 1);
+    pendingShotsRef.current.add(`${row},${col}`);
+
     setIsFiring(true);
     try {
-      const isHit = opponentOccupiedRef.current.has(`${row},${col}`);
-      const nextTurn = session.playerSlot === 'player1' ? 'player2' : 'player1';
-
       const { error } = await supabase.from('shots').insert({
         game_id: session.gameId,
         shooter_id: session.playerId,
@@ -162,12 +174,21 @@ export function useBattleSync(
       });
       if (error) throw error;
 
-      await supabase
-        .from('games')
-        .update({ current_turn: nextTurn })
-        .eq('id', session.gameId);
+      // Trafienie: gracz strzela jeszcze raz (tura NIE zmienia się)
+      // Pudło: tura przechodzi na przeciwnika
+      if (!isHit) {
+        const nextTurn = session.playerSlot === 'player1' ? 'player2' : 'player1';
+        await supabase
+          .from('games')
+          .update({ current_turn: nextTurn })
+          .eq('id', session.gameId);
+      }
     } catch (e) {
       console.error('Błąd strzału:', e);
+      // Cofnij optymistyczną aktualizację przy błędzie
+      setOpponentGrid(prev => applyCell(prev, row, col, 'empty'));
+      if (isHit) setMyHits(c => c - 1);
+      pendingShotsRef.current.delete(`${row},${col}`);
     } finally {
       setIsFiring(false);
     }

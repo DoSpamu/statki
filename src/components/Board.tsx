@@ -242,8 +242,8 @@ function Cell({ state, shipInfo, isPreview, previewValid, isExcluded, phase, cas
         </span>
       )}
       {state === 'miss' && (
-        <span className="relative z-10 text-[#3a8aaa] text-sm font-bold leading-none select-none">
-          ◦
+        <span className="relative z-10 text-white text-xs font-black leading-none select-none opacity-80">
+          ●
         </span>
       )}
     </button>
