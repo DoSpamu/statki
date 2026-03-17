@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Board from './Board';
 import VictoryOverlay from './VictoryOverlay';
+import ChatPanel from './ChatPanel';
 import { useBattleSync } from '../lib/useBattleSync';
 import { useBattleSounds } from '../lib/useBattleSounds';
 import { playFire } from '../lib/soundEngine';
@@ -274,6 +275,13 @@ export default function BattleView({
             chybienie
           </span>
         </div>
+
+        {/* Chat między graczami */}
+        <ChatPanel
+          gameId={session.gameId}
+          playerId={session.playerId}
+          playerName={session.playerName}
+        />
       </div>
     </>
   );

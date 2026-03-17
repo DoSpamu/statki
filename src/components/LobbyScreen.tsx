@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createGame, joinGame, getStoredPlayerName, savePlayerName } from '../lib/gameService';
 import { supabase } from '../lib/supabase';
 import SoundToggle from './SoundToggle';
+import Leaderboard from './Leaderboard';
 import { playClick } from '../lib/soundEngine';
 import type { GameSession } from '../types/lobby';
 
@@ -354,6 +355,9 @@ export default function LobbyScreen({ onGameStart, onAIStart }: LobbyScreenProps
           ⚠ {errorMsg}
         </div>
       )}
+
+      {/* Tablica wyników */}
+      {!isWaiting && <Leaderboard />}
 
       {/* Dolny HUD */}
       <div className="w-full max-w-xl flex items-center justify-between text-[10px] text-[#4a6a18] tracking-widest uppercase border-t border-[#1e2e10] pt-2">

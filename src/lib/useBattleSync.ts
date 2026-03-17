@@ -98,7 +98,7 @@ export function useBattleSync(
     winnerNotifiedRef.current = true;
     supabase
       .from('games')
-      .update({ status: 'finished', winner_id: session.playerId })
+      .update({ status: 'finished', winner_id: session.playerId, finished_at: new Date().toISOString() })
       .eq('id', session.gameId);
   }, [winner, session.gameId, session.playerId]);
 
