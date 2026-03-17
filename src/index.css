@@ -1,1 +1,61 @@
 @import "tailwindcss";
+
+/* ─── Battlefield-style animations ─────────────────────────────────────── */
+
+/* Eksplozja: flash → pomarańcz → wygaszenie do spalonej czerni */
+@keyframes bf-explosion {
+  0%   { transform: scale(1);    background-color: #ff9500; box-shadow: 0 0 18px 6px #ff950077; }
+  15%  { transform: scale(1.55); background-color: #ffee00; box-shadow: 0 0 32px 14px #ffee0099; }
+  40%  { transform: scale(1.2);  background-color: #ff3300; box-shadow: 0 0 22px 7px #ff330066; }
+  75%  { transform: scale(1.05); background-color: #881000; box-shadow: 0 0 10px 3px #ff220033; }
+  100% { transform: scale(1);    background-color: #1e0400; box-shadow: inset 0 0 14px 4px #ff220018, 0 0 6px 2px #ff330022; }
+}
+
+/* Chybienie: plusk wody – błysk jasnobłękitny → ciemna woda */
+@keyframes bf-splash {
+  0%   { transform: scale(0.75); background-color: #c8ecff; box-shadow: 0 0 14px 6px #88ccff77; }
+  20%  { transform: scale(1.35); background-color: #55bbdd; box-shadow: 0 0 22px 8px #44aadd55; }
+  55%  { transform: scale(1.05); background-color: #1e5a72; }
+  100% { transform: scale(1);    background-color: #0d1e26; box-shadow: inset 0 0 10px 3px #1a5577aa; }
+}
+
+/* Wjazd wiersza planszy przy montowaniu komponentu */
+@keyframes bf-row-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Migotanie/init całego HUD */
+@keyframes bf-hud-in {
+  0%   { opacity: 0; filter: brightness(3) saturate(0); }
+  25%  { opacity: 1; filter: brightness(2) saturate(0.3); }
+  60%  { filter: brightness(1.4) saturate(0.7); }
+  100% { filter: brightness(1) saturate(1); }
+}
+
+/* Pulsowanie tytułu / elementów HUD */
+@keyframes bf-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
+
+/* Miganie kursora terminala */
+@keyframes bf-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* ─── Stany pól ─────────────────────────────────────────────────────────── */
+
+.bf-empty { background-color: #141d0c; }
+.bf-empty:hover:not(:disabled) { background-color: #243318; cursor: crosshair; }
+
+.bf-ship  { background-color: #263315; }
+.bf-ship:hover:not(:disabled)  { background-color: #3a4e20; cursor: crosshair; }
+
+.bf-hit  { animation: bf-explosion 0.65s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+.bf-miss { animation: bf-splash    0.55s ease-out forwards; }
+
+/* ─── Ramka taktyczna HUD ────────────────────────────────────────────────── */
+
+.bf-hud { animation: bf-hud-in 0.9s ease-out forwards; }
