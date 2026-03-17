@@ -96,10 +96,11 @@ export function useBattleSync(
   useEffect(() => {
     if (winner !== 'me' || winnerNotifiedRef.current) return;
     winnerNotifiedRef.current = true;
-    supabase
+    void supabase
       .from('games')
       .update({ status: 'finished', winner_id: session.playerId, finished_at: new Date().toISOString() })
-      .eq('id', session.gameId);
+      .eq('id', session.gameId)
+      .then();
   }, [winner, session.gameId, session.playerId]);
 
   useEffect(() => {
