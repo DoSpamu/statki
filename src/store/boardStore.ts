@@ -266,6 +266,21 @@ export function useBoardStore() {
     setPhase('battle');
   }, []);
 
+  // Naniesienie strzału przeciwnika na moją planszę
+  const applyIncomingShot = useCallback((row: number, col: number) => {
+    setGrid(prev => {
+      const current = prev[row][col].state;
+      if (current !== 'empty' && current !== 'ship') return prev;
+      return prev.map((r, ri) =>
+        r.map((c, ci) =>
+          ri === row && ci === col
+            ? { ...c, state: (current === 'ship' ? 'hit' : 'miss') as CellState }
+            : c,
+        ),
+      );
+    });
+  }, []);
+
   // Losowe rozmieszczenie wszystkich statków (z zachowaniem reguł sąsiedztwa)
   const randomizePlacement = useCallback(() => {
     const result = generateRandomPlacement();
@@ -324,7 +339,7 @@ export function useBoardStore() {
     remainingShips, placedShips,
     allShipsPlaced,
     selectShip, toggleOrientation,
-    forceBattlePhase, randomizePlacement,
+    forceBattlePhase, applyIncomingShot, randomizePlacement,
     handleCellClick, handleCellHover, handleBoardLeave,
     resetGame,
   };

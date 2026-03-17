@@ -161,11 +161,12 @@ interface CellProps {
   isExcluded: boolean;
   phase: Phase;
   cascadeDelay?: number;
+  readonly?: boolean;
   onClick: () => void;
   onHover: () => void;
 }
 
-function Cell({ state, shipInfo, isPreview, previewValid, isExcluded, phase, cascadeDelay, onClick, onHover }: CellProps) {
+function Cell({ state, shipInfo, isPreview, previewValid, isExcluded, phase, cascadeDelay, readonly, onClick, onHover }: CellProps) {
   const isFinished = state === 'hit' || state === 'miss';
 
   const previewStyle = isPreview ? {
@@ -190,7 +191,7 @@ function Cell({ state, shipInfo, isPreview, previewValid, isExcluded, phase, cas
     <button
       onClick={onClick}
       onMouseEnter={onHover}
-      disabled={isFinished}
+      disabled={isFinished || readonly}
       className={[
         'relative group w-12 h-12 border border-[#2a3a18]',
         'flex items-center justify-center',
@@ -216,7 +217,7 @@ function Cell({ state, shipInfo, isPreview, previewValid, isExcluded, phase, cas
       )}
 
       {/* Narożniki celownika na hover */}
-      {!isFinished && !isPreview && (
+      {!isFinished && !isPreview && !readonly && (
         <>
           <span className="absolute top-0.5 left-0.5 w-2.5 h-2.5 border-t-2 border-l-2 border-[#a8cc30] opacity-0 group-hover:opacity-100 transition-opacity duration-75 z-20" />
           <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 border-t-2 border-r-2 border-[#a8cc30] opacity-0 group-hover:opacity-100 transition-opacity duration-75 z-20" />
@@ -279,6 +280,7 @@ interface BoardProps {
   onBoardLeave: () => void;
   title?: string;
   exploding?: boolean;
+  readonly?: boolean;
 }
 
 function buildPreviewSet(cells: [number, number][]): Set<string> {
@@ -288,7 +290,7 @@ function buildPreviewSet(cells: [number, number][]): Set<string> {
 export default function Board({
   grid, phase, cellShipInfo,
   previewCells, previewValid, excludedCells,
-  onCellClick, onCellHover, onBoardLeave, title, exploding,
+  onCellClick, onCellHover, onBoardLeave, title, exploding, readonly,
 }: BoardProps) {
   const previewSet = buildPreviewSet(previewCells);
 
@@ -338,6 +340,7 @@ export default function Board({
                     cascadeDelay={exploding
                       ? Math.sqrt((ri - 4.5) ** 2 + (ci - 4.5) ** 2) * 0.07
                       : undefined}
+                    readonly={readonly}
                     onClick={() => onCellClick(ri, ci)}
                     onHover={() => onCellHover(ri, ci)}
                   />

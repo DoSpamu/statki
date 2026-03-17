@@ -1,8 +1,9 @@
 interface VictoryOverlayProps {
   onReset: () => void;
+  isWinner?: boolean;
 }
 
-export default function VictoryOverlay({ onReset }: VictoryOverlayProps) {
+export default function VictoryOverlay({ onReset, isWinner = true }: VictoryOverlayProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col items-center justify-center font-mono"
@@ -84,18 +85,24 @@ export default function VictoryOverlay({ onReset }: VictoryOverlayProps) {
         style={{ animation: 'nuke-text 0.8s ease-out 1.4s both', opacity: 0 }}
       >
         <div className="flex flex-col items-center gap-2">
-          <span
-            className="text-[10px] text-[#ff9922] tracking-[0.5em] uppercase"
-          >
-            ⚛ Nuclear Strike Confirmed
+          <span className="text-[10px] tracking-[0.5em] uppercase"
+            style={{ color: isWinner ? '#ff9922' : '#4a8aaa' }}>
+            {isWinner ? '⚛ Nuclear Strike Confirmed' : '⚛ Nuclear Strike Received'}
           </span>
           <span
-            className="text-5xl font-black text-[#ffee44] uppercase tracking-[0.4em] drop-shadow-[0_0_30px_#ff9900cc]"
+            className="text-5xl font-black uppercase tracking-[0.4em]"
+            style={{
+              color: isWinner ? '#ffee44' : '#44aadd',
+              filter: isWinner
+                ? 'drop-shadow(0 0 30px #ff9900cc)'
+                : 'drop-shadow(0 0 30px #0088ccaa)',
+            }}
           >
-            VICTORY
+            {isWinner ? 'VICTORY' : 'DEFEAT'}
           </span>
-          <span className="text-sm text-[#a8cc30] tracking-[0.35em] uppercase">
-            All enemy vessels destroyed
+          <span className="text-sm tracking-[0.35em] uppercase"
+            style={{ color: isWinner ? '#a8cc30' : '#4a8aaa' }}>
+            {isWinner ? 'All enemy vessels destroyed' : 'Your fleet has been destroyed'}
           </span>
         </div>
 
