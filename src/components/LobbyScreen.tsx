@@ -7,6 +7,7 @@ type LobbyState = 'idle' | 'creating' | 'waiting' | 'joining' | 'error';
 
 interface LobbyScreenProps {
   onGameStart: (session: GameSession) => void;
+  onAIStart: (playerName: string) => void;
 }
 
 function BlinkCursor() {
@@ -40,7 +41,7 @@ function TermInput({
   );
 }
 
-export default function LobbyScreen({ onGameStart }: LobbyScreenProps) {
+export default function LobbyScreen({ onGameStart, onAIStart }: LobbyScreenProps) {
   const [playerName, setPlayerName] = useState(getStoredPlayerName);
   const [lobbyState, setLobbyState] = useState<LobbyState>('idle');
   const [session, setSession] = useState<GameSession | null>(null);
@@ -118,6 +119,11 @@ export default function LobbyScreen({ onGameStart }: LobbyScreenProps) {
     channelRef.current = ch;
   }
 
+  function handleAIStart() {
+    if (!validateName()) return;
+    onAIStart(playerName.trim());
+  }
+
   const isWaiting = lobbyState === 'waiting';
   const isError  = lobbyState === 'error';
   const busy     = lobbyState === 'creating' || lobbyState === 'joining';
@@ -166,7 +172,51 @@ export default function LobbyScreen({ onGameStart }: LobbyScreenProps) {
         />
       </div>
 
-      {/* Dwa panele akcji */}
+      {/* Panel: VS KOMPUTER */}
+      {!isWaiting && (
+        <div className="w-full max-w-xl">
+          <div className="flex flex-col gap-3 p-4 border border-[#4a6a18] bg-[#070b04] relative">
+            <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-[#a8cc30]" />
+            <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-[#a8cc30]" />
+            <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-[#a8cc30]" />
+            <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-[#a8cc30]" />
+
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-[#a8cc30] tracking-[0.3em] uppercase">
+                ◉ Single Player — Gra z komputerem
+              </span>
+              <span className="text-[9px] text-[#4a6a18] tracking-widest">AI OPPONENT</span>
+            </div>
+            <p className="text-[10px] text-[#3a5818] tracking-wider leading-relaxed">
+              Graj lokalnie przeciwko AI. Brak potrzeby połączenia z graczem.
+            </p>
+            <button
+              onClick={handleAIStart}
+              disabled={busy}
+              className={[
+                'px-4 py-2.5 text-xs font-black tracking-[0.3em] uppercase transition-all duration-150',
+                'border focus:outline-none',
+                busy
+                  ? 'border-[#2a3a18] text-[#3a5818] cursor-not-allowed'
+                  : 'border-[#a8cc30] text-[#a8cc30] hover:bg-[#a8cc3015] hover:shadow-[0_0_20px_#a8cc3055]',
+              ].join(' ')}
+            >
+              ▶ VS KOMPUTER
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Linia podziału */}
+      {!isWaiting && (
+        <div className="flex items-center gap-4 w-full max-w-xl">
+          <div className="flex-1 h-px bg-[#1e2e10]" />
+          <span className="text-[9px] text-[#3a5818] tracking-[0.4em] uppercase">lub graj online</span>
+          <div className="flex-1 h-px bg-[#1e2e10]" />
+        </div>
+      )}
+
+      {/* Dwa panele akcji online */}
       {!isWaiting && (
         <div className="flex gap-6 w-full max-w-xl">
           {/* Panel: STWÓRZ GRĘ */}

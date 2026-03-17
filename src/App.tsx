@@ -5,10 +5,16 @@ import KeyboardLegend from './components/KeyboardLegend';
 import WaitingOverlay from './components/WaitingOverlay';
 import BattleView from './components/BattleView';
 import LobbyScreen from './components/LobbyScreen';
+import AIGameView from './components/AIGameView';
 import { useBoardStore } from './store/boardStore';
 import { useGameSync } from './lib/useGameSync';
 import { useSupabaseStatus } from './lib/useSupabaseStatus';
 import type { GameSession } from './types/lobby';
+
+type GameMode =
+  | { type: 'online'; session: GameSession }
+  | { type: 'ai'; playerName: string }
+  | null;
 
 function BlinkCursor() {
   return (
@@ -20,9 +26,23 @@ function BlinkCursor() {
 }
 
 export default function App() {
-  const [session, setSession] = useState<GameSession | null>(null);
-  if (!session) return <LobbyScreen onGameStart={setSession} />;
-  return <GameView session={session} onReturnToLobby={() => setSession(null)} />;
+  const [mode, setMode] = useState<GameMode>(null);
+
+  if (!mode) return (
+    <LobbyScreen
+      onGameStart={s => setMode({ type: 'online', session: s })}
+      onAIStart={name => setMode({ type: 'ai', playerName: name })}
+    />
+  );
+
+  if (mode.type === 'ai') return (
+    <AIGameView
+      playerName={mode.playerName}
+      onReturnToLobby={() => setMode(null)}
+    />
+  );
+
+  return <GameView session={mode.session} onReturnToLobby={() => setMode(null)} />;
 }
 
 // ─── Widok gry (oddzielny komponent → stan boardStore resetuje się przy remontowaniu)
