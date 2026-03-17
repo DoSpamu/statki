@@ -228,8 +228,6 @@ export function useBoardStore() {
       setSelectedShip(next?.type ?? null);
     }
 
-    placeshipRef.current = placeship; // Aktualizuj ref zaraz po definicji
-
     // Po postawieniu wszystkich statków odznacz selekcję — gracz musi kliknąć GOTOWY
     const totalToPlace = SHIP_DEFINITIONS.reduce((sum, d) => sum + d.count, 0);
     if (newPlaced.length >= totalToPlace) {
@@ -237,6 +235,8 @@ export function useBoardStore() {
       setHoverCell(null);
     }
   }
+  // Aktualizuj ref przy każdym renderze — event listener zawsze wywoła aktualną wersję
+  placeshipRef.current = placeship;
 
   // Gracz potwierdza gotowość — przejście do fazy walki
   const confirmReady = useCallback(() => {
