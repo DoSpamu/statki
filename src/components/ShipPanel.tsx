@@ -1,0 +1,179 @@
+import type { ShipType, Orientation, Phase } from '../types/board';
+import { SHIP_DEFINITIONS } from '../types/board';
+
+interface ShipItemProps {
+  type: ShipType;
+  name: string;
+  callsign: string;
+  size: number;
+  remaining: number;
+  placed: number;
+  total: number;
+  isSelected: boolean;
+  isDeployed: boolean;         // wszystkie sztuki tego typu postawione
+  orientation: Orientation;
+  onSelect: () => void;
+}
+
+function ShipItem({
+  callsign, name, size,
+  remaining, placed, total,
+  isSelected, isDeployed,
+  orientation, onSelect,
+}: ShipItemProps) {
+  return (
+    <button
+      onClick={onSelect}
+      disabled={isDeployed}
+      className={[
+        'w-full text-left px-3 py-2.5 border transition-all duration-150 font-mono',
+        'focus:outline-none focus:ring-1 focus:ring-[#a8cc30]',
+        isSelected
+          ? 'border-[#a8cc30] bg-[#1a2a08] shadow-[0_0_12px_rgba(168,204,48,0.25)]'
+          : isDeployed
+            ? 'border-[#2a3a18] bg-[#0a0e06] opacity-50 cursor-default'
+            : 'border-[#2a3a18] bg-[#0d1208] hover:border-[#5a7a28] hover:bg-[#121a08]',
+      ].join(' ')}
+    >
+      {/* Nagłówek: callsign + nazwa + licznik */}
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2">
+          {isSelected && (
+            <span className="text-[#a8cc30] text-xs" style={{ animation: 'bf-pulse 0.8s ease-in-out infinite' }}>▶</span>
+          )}
+          {isDeployed && <span className="text-[#4a6a20] text-xs">✓</span>}
+          {!isSelected && !isDeployed && <span className="text-[#3a5018] text-xs">◇</span>}
+          <span className={`text-xs font-bold tracking-wider ${isSelected ? 'text-[#c8f050]' : isDeployed ? 'text-[#4a6a20]' : 'text-[#7aaa30]'}`}>
+            {callsign}
+          </span>
+          <span className={`text-xs ${isSelected ? 'text-[#8aaa40]' : 'text-[#3a5818]'}`}>
+            {name}
+          </span>
+        </div>
+        <span className={`text-xs tabular-nums ${isSelected ? 'text-[#a8cc30]' : 'text-[#3a5818]'}`}>
+          {placed}/{total}
+        </span>
+      </div>
+
+      {/* Wizualizacja statku — pola */}
+      <div className={`flex gap-0.5 ${orientation === 'vertical' ? 'flex-col' : 'flex-row'}`}>
+        {Array.from({ length: size }).map((_, i) => (
+          <div
+            key={i}
+            className={[
+              'border transition-colors',
+              orientation === 'vertical' ? 'w-4 h-3' : 'w-4 h-4',
+              isDeployed
+                ? 'bg-[#1a2a08] border-[#2a4010]'
+                : isSelected
+                  ? 'bg-[#3a5820] border-[#7aaa30] shadow-[0_0_4px_rgba(120,180,40,0.4)]'
+                  : 'bg-[#1e2e10] border-[#3a5020]',
+            ].join(' ')}
+          />
+        ))}
+      </div>
+
+      {/* Liczba pól */}
+      <div className={`mt-1 text-[9px] tracking-widest ${isSelected ? 'text-[#6a8a28]' : 'text-[#2a3e10]'}`}>
+        {size} GRID {size === 1 ? 'UNIT' : 'UNITS'} · {remaining > 0 ? `×${remaining} REMAINING` : 'DEPLOYED'}
+      </div>
+    </button>
+  );
+}
+
+interface ShipPanelProps {
+  selectedShip: ShipType | null;
+  orientation: Orientation;
+  phase: Phase;
+  remainingShips: (typeof SHIP_DEFINITIONS[number] & { placed: number; remaining: number })[];
+  onSelectShip: (type: ShipType) => void;
+  onToggleOrientation: () => void;
+}
+
+export default function ShipPanel({
+  selectedShip, orientation, phase,
+  remainingShips,
+  onSelectShip, onToggleOrientation,
+}: ShipPanelProps) {
+  const allDeployed = phase === 'battle';
+  const deployedCount = remainingShips.reduce((s, d) => s + d.placed, 0);
+  const totalCount    = remainingShips.reduce((s, d) => s + d.count, 0);
+
+  return (
+    <div className="bf-hud flex flex-col gap-2 w-52">
+      {/* Tytuł panelu */}
+      <div className="flex items-center gap-2 pb-1 border-b border-[#2a3a18]">
+        <div className="w-1.5 h-1.5 bg-[#a8cc30] rounded-full" style={{ animation: allDeployed ? 'none' : 'bf-pulse 1.5s ease-in-out infinite' }} />
+        <span className="text-[#a8cc30] text-[10px] font-mono font-bold tracking-[0.2em] uppercase">
+          Fleet Deployment
+        </span>
+      </div>
+
+      {/* Status */}
+      <div className="flex justify-between items-center text-[9px] font-mono text-[#4a6a20] tracking-widest uppercase">
+        <span>{allDeployed ? '● BATTLE READY' : '○ DEPLOYING'}</span>
+        <span>{deployedCount}/{totalCount}</span>
+      </div>
+
+      {/* Lista statków */}
+      <div className="flex flex-col gap-1.5">
+        {remainingShips.map(def => (
+          <ShipItem
+            key={def.type}
+            type={def.type}
+            name={def.name}
+            callsign={def.callsign}
+            size={def.size}
+            remaining={def.remaining}
+            placed={def.placed}
+            total={def.count}
+            isSelected={selectedShip === def.type}
+            isDeployed={def.remaining === 0}
+            orientation={orientation}
+            onSelect={() => onSelectShip(def.type)}
+          />
+        ))}
+      </div>
+
+      {/* Przycisk orientacji */}
+      {!allDeployed && (
+        <div className="mt-2 flex flex-col gap-1">
+          <button
+            onClick={onToggleOrientation}
+            className="w-full py-2 border border-[#4a6a20] bg-[#0d1208] hover:bg-[#141e0a] hover:border-[#7aaa30] transition-colors font-mono text-[10px] text-[#7aaa30] tracking-widest uppercase focus:outline-none focus:ring-1 focus:ring-[#a8cc30]"
+          >
+            ↻ {orientation === 'horizontal' ? '─ Horizontal' : '│ Vertical'}
+          </button>
+          <div className="text-[9px] text-[#2a3e10] font-mono text-center tracking-widest">
+            [R] TO ROTATE
+          </div>
+        </div>
+      )}
+
+      {/* Panel walki — widoczny po rozstawieniu */}
+      {allDeployed && (
+        <div className="mt-2 border border-[#4a8a20] bg-[#0a1206] p-3 text-center">
+          <div className="text-[#a8cc30] text-[10px] font-mono font-bold tracking-widest uppercase mb-1">
+            ◈ FLEET READY
+          </div>
+          <div className="text-[#4a6a20] text-[9px] font-mono tracking-wider">
+            Click grid to fire
+          </div>
+        </div>
+      )}
+
+      {/* Legenda */}
+      <div className="mt-auto pt-3 border-t border-[#1a2a0e] flex flex-col gap-1">
+        <div className="text-[9px] text-[#2a3e10] font-mono tracking-widest uppercase">Legend</div>
+        <div className="flex items-center gap-2 text-[9px] text-[#3a5818] font-mono">
+          <span className="w-3 h-3 inline-block" style={{ backgroundColor: 'rgba(100,180,30,0.55)', boxShadow: 'inset 0 0 5px rgba(160,230,50,0.4)' }} />
+          placement OK
+        </div>
+        <div className="flex items-center gap-2 text-[9px] text-[#3a5818] font-mono">
+          <span className="w-3 h-3 inline-block" style={{ backgroundColor: 'rgba(210,40,20,0.5)', boxShadow: 'inset 0 0 5px rgba(255,80,50,0.4)' }} />
+          invalid position
+        </div>
+      </div>
+    </div>
+  );
+}
