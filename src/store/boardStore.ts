@@ -261,11 +261,10 @@ export function useBoardStore() {
   // Aktualizuj ref przy każdym renderze — event listener zawsze wywoła aktualną wersję
   placeshipRef.current = placeship;
 
-  // Gracz potwierdza gotowość — przejście do fazy walki
-  const confirmReady = useCallback(() => {
-    const totalToPlace = SHIP_DEFINITIONS.reduce((sum, d) => sum + d.count, 0);
-    if (placedShips.length >= totalToPlace) setPhase('battle');
-  }, [placedShips.length]);
+  // Zewnętrzny trigger z Realtime — oba okna klientów przechodzą do walki
+  const forceBattlePhase = useCallback(() => {
+    setPhase('battle');
+  }, []);
 
   // Losowe rozmieszczenie wszystkich statków (z zachowaniem reguł sąsiedztwa)
   const randomizePlacement = useCallback(() => {
@@ -322,10 +321,10 @@ export function useBoardStore() {
     selectedShip, orientation,
     previewCells, previewValid,
     excludedCells, cellShipInfo,
-    remainingShips,
+    remainingShips, placedShips,
     allShipsPlaced,
     selectShip, toggleOrientation,
-    confirmReady, randomizePlacement,
+    forceBattlePhase, randomizePlacement,
     handleCellClick, handleCellHover, handleBoardLeave,
     resetGame,
   };

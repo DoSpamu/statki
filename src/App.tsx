@@ -3,8 +3,10 @@ import Board from './components/Board';
 import ShipPanel from './components/ShipPanel';
 import KeyboardLegend from './components/KeyboardLegend';
 import VictoryOverlay from './components/VictoryOverlay';
+import WaitingOverlay from './components/WaitingOverlay';
 import LobbyScreen from './components/LobbyScreen';
 import { useBoardStore } from './store/boardStore';
+import { useGameSync } from './lib/useGameSync';
 import { useSupabaseStatus } from './lib/useSupabaseStatus';
 import type { GameSession } from './types/lobby';
 
@@ -43,11 +45,19 @@ function GameView({ session, onReturnToLobby }: GameViewProps) {
     previewCells, previewValid,
     excludedCells, cellShipInfo,
     remainingShips, allShipsPlaced,
+    placedShips,
     selectShip, toggleOrientation,
-    confirmReady, randomizePlacement,
+    forceBattlePhase, randomizePlacement,
     handleCellClick, handleCellHover, handleBoardLeave,
     resetGame,
   } = useBoardStore();
+
+  const sync = useGameSync(session, forceBattlePhase);
+
+  // Gracz klika GOTOWY — zapisuje flotę do Supabase i czeka na przeciwnika
+  function handleConfirmReady() {
+    if (allShipsPlaced) sync.submitReady(placedShips);
+  }
 
   function handleReset() {
     resetGame();
@@ -57,6 +67,9 @@ function GameView({ session, onReturnToLobby }: GameViewProps) {
   return (
     <>
       {winner && <VictoryOverlay onReset={handleReset} />}
+      {sync.iAmReady && phase === 'placement' && (
+        <WaitingOverlay opponentReady={sync.opponentReady} />
+      )}
       <div
         className="min-h-screen flex flex-col items-center justify-center gap-6 p-8 font-mono"
         style={{ background: 'radial-gradient(ellipse at center, #0e1508 0%, #060905 100%)' }}
@@ -112,7 +125,7 @@ function GameView({ session, onReturnToLobby }: GameViewProps) {
             remainingShips={remainingShips}
             onSelectShip={selectShip}
             onToggleOrientation={toggleOrientation}
-            onConfirmReady={confirmReady}
+            onConfirmReady={handleConfirmReady}
             onRandomize={randomizePlacement}
           />
 
