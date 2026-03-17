@@ -135,18 +135,53 @@ export default function ShipPanel({
         ))}
       </div>
 
-      {/* Przycisk orientacji */}
+      {/* Przycisk OBRÓĆ */}
       {!allDeployed && (
-        <div className="mt-2 flex flex-col gap-1">
+        <div className="mt-2">
           <button
             onClick={onToggleOrientation}
-            className="w-full py-2 border border-[#4a6a20] bg-[#0d1208] hover:bg-[#141e0a] hover:border-[#7aaa30] transition-colors font-mono text-[10px] text-[#7aaa30] tracking-widest uppercase focus:outline-none focus:ring-1 focus:ring-[#a8cc30]"
+            className={[
+              'w-full px-3 py-2.5 border-2 font-mono',
+              'transition-all duration-100 focus:outline-none focus:ring-2 focus:ring-[#a8cc30]',
+              'border-[#6a9a20] bg-[#0f1a08]',
+              'hover:border-[#a8cc30] hover:bg-[#182408]',
+              'active:scale-[0.98]',
+            ].join(' ')}
           >
-            ↻ {orientation === 'horizontal' ? '─ Horizontal' : '│ Vertical'}
+            {/* Wiersz górny: ikona + napis + skrót */}
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[#a8cc30] text-lg leading-none">↻</span>
+                <span className="text-[#c8dc50] text-sm font-black tracking-[0.15em]">OBRÓĆ</span>
+              </div>
+              <span className="text-[#3a5818] text-[9px] border border-[#2a3a18] px-1.5 py-0.5 tracking-widest">
+                R
+              </span>
+            </div>
+
+            {/* Diagram: aktualna → następna orientacja */}
+            <div className="flex items-center justify-center gap-3">
+              {/* Aktualna orientacja — jasna */}
+              <div className={`flex gap-0.5 ${orientation === 'vertical' ? 'flex-col' : 'flex-row'}`}>
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="w-3 h-3 bg-[#3a5820] border border-[#7aaa30]" />
+                ))}
+              </div>
+
+              <span className="text-[#4a6a20] text-xs">→</span>
+
+              {/* Następna orientacja — ciemna */}
+              <div className={`flex gap-0.5 ${orientation === 'vertical' ? 'flex-row' : 'flex-col'}`}>
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="w-3 h-3 bg-[#1e2e10] border border-[#3a5020]" />
+                ))}
+              </div>
+
+              <span className="text-[#4a6a20] text-[9px] tracking-widest uppercase ml-1">
+                {orientation === 'horizontal' ? '│ PIONOWO' : '─ POZIOMO'}
+              </span>
+            </div>
           </button>
-          <div className="text-[9px] text-[#2a3e10] font-mono text-center tracking-widest">
-            [R] TO ROTATE
-          </div>
         </div>
       )}
 

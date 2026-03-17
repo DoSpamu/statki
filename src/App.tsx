@@ -16,6 +16,7 @@ export default function App() {
     grid, phase,
     selectedShip, orientation,
     previewCells, previewValid,
+    excludedCells,
     remainingShips,
     selectShip, toggleOrientation,
     handleCellClick, handleCellHover, handleBoardLeave,
@@ -73,8 +74,10 @@ export default function App() {
 
           <Board
             grid={grid}
+            phase={phase}
             previewCells={previewCells}
             previewValid={previewValid}
+            excludedCells={excludedCells}
             onCellClick={handleCellClick}
             onCellHover={handleCellHover}
             onBoardLeave={handleBoardLeave}

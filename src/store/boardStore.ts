@@ -24,14 +24,37 @@ function getPreviewCells(
   );
 }
 
-// Sprawdza czy komórki są w granicach planszy i nie nachodzą na istniejące statki
+// Sprawdza czy komórki mieszczą się w planszy, nie nachodzą na istniejące statki
+// i nie stykają się z nimi (żaden sąsiad 8-kierunkowy nie może być zajęty)
 function isValidPlacement(
   cells: [number, number][],
   occupiedSet: Set<string>,
 ): boolean {
-  return cells.every(([r, c]) =>
-    r >= 0 && r < 10 && c >= 0 && c < 10 && !occupiedSet.has(`${r},${c}`)
-  );
+  if (!cells.every(([r, c]) => r >= 0 && r < 10 && c >= 0 && c < 10)) return false;
+  for (const [r, c] of cells) {
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (occupiedSet.has(`${r + dr},${c + dc}`)) return false;
+      }
+    }
+  }
+  return true;
+}
+
+// Zbiór wszystkich komórek sąsiadujących z postawionymi statkami (strefa wykluczenia)
+function buildExcludedSet(placedShips: { cells: [number, number][] }[]): Set<string> {
+  const excluded = new Set<string>();
+  for (const ship of placedShips) {
+    for (const [r, c] of ship.cells) {
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const nr = r + dr, nc = c + dc;
+          if (nr >= 0 && nr < 10 && nc >= 0 && nc < 10) excluded.add(`${nr},${nc}`);
+        }
+      }
+    }
+  }
+  return excluded;
 }
 
 export function useBoardStore() {
@@ -58,6 +81,12 @@ export function useBoardStore() {
   const previewValid = useMemo<boolean>(() =>
     previewCells.length > 0 && isValidPlacement(previewCells, occupiedSet),
     [previewCells, occupiedSet]
+  );
+
+  // Strefa wykluczenia — komórki sąsiadujące z postawionymi statkami
+  const excludedCells = useMemo<Set<string>>(
+    () => buildExcludedSet(placedShips),
+    [placedShips]
   );
 
   // Liczba pozostałych statków każdego typu do postawienia
@@ -157,6 +186,7 @@ export function useBoardStore() {
     grid, phase,
     selectedShip, orientation,
     previewCells, previewValid,
+    excludedCells,
     remainingShips,
     selectShip, toggleOrientation,
     handleCellClick, handleCellHover, handleBoardLeave,

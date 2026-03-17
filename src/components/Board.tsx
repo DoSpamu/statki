@@ -1,4 +1,4 @@
-import type { BoardGrid, CellState } from '../types/board';
+import type { BoardGrid, CellState, Phase } from '../types/board';
 
 const ROW_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 const COL_LABELS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
@@ -14,12 +14,16 @@ interface CellProps {
   state: CellState;
   isPreview: boolean;
   previewValid: boolean;
+  isExcluded: boolean;   // w strefie wykluczenia sąsiadującego statku
+  phase: Phase;
   onClick: () => void;
   onHover: () => void;
 }
 
-function Cell({ state, isPreview, previewValid, onClick, onHover }: CellProps) {
+function Cell({ state, isPreview, previewValid, isExcluded, phase, onClick, onHover }: CellProps) {
   const isFinished = state === 'hit' || state === 'miss';
+  // Strefa wykluczenia widoczna tylko podczas fazy rozstawiania na pustych polach
+  const showExcluded = isExcluded && state === 'empty' && phase === 'placement' && !isPreview;
 
   // Styl podglądu rozmieszczenia statku — nadpisuje kolor tła
   const previewStyle = isPreview ? {
@@ -68,6 +72,13 @@ function Cell({ state, isPreview, previewValid, onClick, onHover }: CellProps) {
         </>
       )}
 
+      {/* Marker strefy wykluczenia — subtelna kratka */}
+      {showExcluded && (
+        <span className="absolute inset-0 pointer-events-none opacity-40"
+          style={{ backgroundImage: 'radial-gradient(circle, #3a5020 1px, transparent 1px)', backgroundSize: '6px 6px', backgroundPosition: 'center' }}
+        />
+      )}
+
       {state === 'hit' && (
         <span className="relative z-10 text-[#ff9922] text-base font-black leading-none select-none drop-shadow-[0_0_6px_#ff6600]">
           ✕
@@ -101,8 +112,10 @@ function TacticalFrame({ children }: { children: React.ReactNode }) {
 
 interface BoardProps {
   grid: BoardGrid;
+  phase: Phase;
   previewCells: [number, number][];
   previewValid: boolean;
+  excludedCells: Set<string>;
   onCellClick: (row: number, col: number) => void;
   onCellHover: (row: number, col: number) => void;
   onBoardLeave: () => void;
@@ -115,7 +128,7 @@ function buildPreviewSet(cells: [number, number][]): Set<string> {
 }
 
 export default function Board({
-  grid, previewCells, previewValid,
+  grid, phase, previewCells, previewValid, excludedCells,
   onCellClick, onCellHover, onBoardLeave, title,
 }: BoardProps) {
   const previewSet = buildPreviewSet(previewCells);
@@ -164,6 +177,8 @@ export default function Board({
                     state={cell.state}
                     isPreview={isPrev}
                     previewValid={previewValid}
+                    isExcluded={excludedCells.has(`${ri},${ci}`)}
+                    phase={phase}
                     onClick={() => onCellClick(ri, ci)}
                     onHover={() => onCellHover(ri, ci)}
                   />
