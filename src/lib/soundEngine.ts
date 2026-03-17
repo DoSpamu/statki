@@ -9,6 +9,37 @@ function ctx(): AudioContext {
   return _ctx;
 }
 
+// ─── Ładowanie plików audio z cache'em ────────────────────────────────────────
+
+const _audioCache = new Map<string, AudioBuffer>();
+
+async function loadAudio(url: string): Promise<AudioBuffer> {
+  const cached = _audioCache.get(url);
+  if (cached) return cached;
+  const response = await fetch(url);
+  const arrayBuffer = await response.arrayBuffer();
+  const audioBuffer = await ctx().decodeAudioData(arrayBuffer);
+  _audioCache.set(url, audioBuffer);
+  return audioBuffer;
+}
+
+function playBuffer(buffer: AudioBuffer, vol = 1): void {
+  const c = ctx();
+  const src = c.createBufferSource();
+  src.buffer = buffer;
+  const g = masterGain(vol);
+  src.connect(g);
+  src.start(c.currentTime);
+}
+
+// Wstępne załadowanie plików bojowych (wywołaj po pierwszej interakcji)
+export function preloadBattleSounds(): void {
+  void loadAudio('/sounds/cannon_fire.ogg');
+  void loadAudio('/sounds/cannon_hit.ogg');
+  void loadAudio('/sounds/cannon_miss.ogg');
+  void loadAudio('/sounds/ship_destroyed_short.ogg');
+}
+
 // ─── Ustawienia globalne ──────────────────────────────────────────────────────
 
 let _muted  = localStorage.getItem('bf_muted')  === 'true';
@@ -50,22 +81,11 @@ function masterGain(vol = 1): GainNode {
   return g;
 }
 
-// Bufor białego szumu o podanej długości
-function noiseBuffer(duration: number): AudioBufferSourceNode {
-  const c = ctx();
-  const size = Math.ceil(c.sampleRate * duration);
-  const buf = c.createBuffer(1, size, c.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
-  const src = c.createBufferSource();
-  src.buffer = buf;
-  return src;
-}
-
 // ─── Efekty ───────────────────────────────────────────────────────────────────
 
 // Kliknięcie UI — krótki elektroniczny beep
 export function playClick(): void {
+  preloadBattleSounds(); // Wstępne załadowanie plików przy pierwszej interakcji
   if (_muted) return;
   const c = ctx(); const t = c.currentTime;
   const o = c.createOscillator(); const g = masterGain(0.4);
@@ -132,152 +152,34 @@ export function playReady(): void {
   });
 }
 
-// Strzał — krótki "bang" przed wynikiem
+// Strzał — cannon_fire.ogg
 export function playFire(): void {
   if (_muted) return;
-  const c = ctx(); const t = c.currentTime;
-
-  // Opadający oscylator (huk)
-  const o = c.createOscillator(); const g = masterGain(0.9);
-  o.type = 'sawtooth';
-  o.frequency.setValueAtTime(340, t);
-  o.frequency.exponentialRampToValueAtTime(70, t + 0.13);
-  g.gain.setValueAtTime(_volume * 0.32, t);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-  o.connect(g); o.start(t); o.stop(t + 0.16);
-
-  // Krótki wybuch szumu
-  const noise = noiseBuffer(0.1);
-  const nf = c.createBiquadFilter(); nf.type = 'bandpass';
-  nf.frequency.value = 2200; nf.Q.value = 0.7;
-  const ng = masterGain(0.6);
-  ng.gain.setValueAtTime(_volume * 0.22, t);
-  ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
-  noise.connect(nf); nf.connect(ng); noise.start(t);
+  void loadAudio('/sounds/cannon_fire.ogg').then(buf => playBuffer(buf, 0.9));
 }
 
-// Trafienie w statek — eksplozja
+// Trafienie w statek — cannon_hit.ogg
 export function playHit(): void {
   if (_muted) return;
-  const c = ctx(); const t = c.currentTime;
-
-  // Niskie "boom"
-  const o = c.createOscillator(); const g = masterGain();
-  o.type = 'sine';
-  o.frequency.setValueAtTime(200, t);
-  o.frequency.exponentialRampToValueAtTime(38, t + 0.42);
-  g.gain.setValueAtTime(_volume * 0.65, t);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.48);
-  o.connect(g); o.start(t); o.stop(t + 0.48);
-
-  // Szum eksplozji z filtrem
-  const noise = noiseBuffer(0.38);
-  const nf = c.createBiquadFilter(); nf.type = 'lowpass';
-  nf.frequency.setValueAtTime(3500, t);
-  nf.frequency.exponentialRampToValueAtTime(280, t + 0.35);
-  const ng = masterGain(0.85);
-  ng.gain.setValueAtTime(_volume * 0.55, t);
-  ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.38);
-  noise.connect(nf); nf.connect(ng); noise.start(t);
-
-  // Ostry "crack" na początku
-  const o2 = c.createOscillator(); const g2 = masterGain(0.8);
-  o2.type = 'sawtooth';
-  o2.frequency.setValueAtTime(1100, t);
-  o2.frequency.exponentialRampToValueAtTime(240, t + 0.055);
-  g2.gain.setValueAtTime(_volume * 0.42, t);
-  g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.065);
-  o2.connect(g2); o2.start(t); o2.stop(t + 0.065);
+  void loadAudio('/sounds/cannon_hit.ogg').then(buf => playBuffer(buf, 1.0));
 }
 
-// Strzał przeciwnika w moją planszę — mniejszy dźwięk trafienia
+// Strzał przeciwnika w moją planszę — cannon_hit.ogg (ciszej)
 export function playIncomingHit(): void {
   if (_muted) return;
-  const c = ctx(); const t = c.currentTime;
-
-  const o = c.createOscillator(); const g = masterGain(0.7);
-  o.type = 'sine';
-  o.frequency.setValueAtTime(160, t);
-  o.frequency.exponentialRampToValueAtTime(30, t + 0.35);
-  g.gain.setValueAtTime(_volume * 0.5, t);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.38);
-  o.connect(g); o.start(t); o.stop(t + 0.38);
-
-  const noise = noiseBuffer(0.28);
-  const nf = c.createBiquadFilter(); nf.type = 'lowpass';
-  nf.frequency.value = 2000;
-  const ng = masterGain(0.65);
-  ng.gain.setValueAtTime(_volume * 0.4, t);
-  ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
-  noise.connect(nf); nf.connect(ng); noise.start(t);
+  void loadAudio('/sounds/cannon_hit.ogg').then(buf => playBuffer(buf, 0.6));
 }
 
-// Chybienie — plusk wody / ping sonaru
+// Chybienie — cannon_miss.ogg
 export function playMiss(): void {
   if (_muted) return;
-  const c = ctx(); const t = c.currentTime;
-
-  // Ping sonaru — opadający ton
-  const o = c.createOscillator(); const g = masterGain(0.65);
-  o.type = 'sine';
-  o.frequency.setValueAtTime(1300, t);
-  o.frequency.exponentialRampToValueAtTime(380, t + 0.3);
-  g.gain.setValueAtTime(_volume * 0.18, t);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
-  o.connect(g); o.start(t); o.stop(t + 0.32);
-
-  // Plusk wody — szum pasmowy
-  const noise = noiseBuffer(0.22);
-  const nf = c.createBiquadFilter(); nf.type = 'bandpass';
-  nf.frequency.setValueAtTime(1600, t + 0.04);
-  nf.Q.value = 2.5;
-  const ng = masterGain(0.5);
-  ng.gain.setValueAtTime(_volume * 0.14, t + 0.04);
-  ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
-  noise.connect(nf); nf.connect(ng); noise.start(t + 0.04);
+  void loadAudio('/sounds/cannon_miss.ogg').then(buf => playBuffer(buf, 0.85));
 }
 
-// Zatopiony statek — potężna eksplozja + metaliczny zgrzyt
+// Zatopiony statek — ship_destroyed_short.ogg
 export function playSunk(): void {
   if (_muted) return;
-  const c = ctx(); const t = c.currentTime;
-
-  // Głęboki boom (niższy i dłuższy niż hit)
-  const o = c.createOscillator(); const g = masterGain();
-  o.type = 'sine';
-  o.frequency.setValueAtTime(130, t);
-  o.frequency.exponentialRampToValueAtTime(22, t + 0.85);
-  g.gain.setValueAtTime(_volume * 0.85, t);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
-  o.connect(g); o.start(t); o.stop(t + 0.9);
-
-  // Rozległy szum eksplozji
-  const noise = noiseBuffer(0.7);
-  const nf = c.createBiquadFilter(); nf.type = 'lowpass';
-  nf.frequency.setValueAtTime(4500, t);
-  nf.frequency.exponentialRampToValueAtTime(180, t + 0.65);
-  const ng = masterGain(0.9);
-  ng.gain.setValueAtTime(_volume * 0.75, t);
-  ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
-  noise.connect(nf); nf.connect(ng); noise.start(t);
-
-  // Metaliczny zgrzyt (statek tonie)
-  const o2 = c.createOscillator(); const g2 = masterGain(0.5);
-  o2.type = 'sawtooth';
-  o2.frequency.setValueAtTime(450, t + 0.12);
-  o2.frequency.exponentialRampToValueAtTime(90, t + 0.65);
-  g2.gain.setValueAtTime(_volume * 0.28, t + 0.12);
-  g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.68);
-  o2.connect(g2); o2.start(t + 0.12); o2.stop(t + 0.68);
-
-  // Drugi huk (echo)
-  const o3 = c.createOscillator(); const g3 = masterGain(0.4);
-  o3.type = 'sine';
-  o3.frequency.setValueAtTime(90, t + 0.25);
-  o3.frequency.exponentialRampToValueAtTime(18, t + 0.75);
-  g3.gain.setValueAtTime(_volume * 0.4, t + 0.25);
-  g3.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
-  o3.connect(g3); o3.start(t + 0.25); o3.stop(t + 0.8);
+  void loadAudio('/sounds/ship_destroyed_short.ogg').then(buf => playBuffer(buf, 1.0));
 }
 
 // Fanfara zwycięstwa — militarne arpegio dur C-E-G-C
