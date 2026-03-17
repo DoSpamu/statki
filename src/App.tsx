@@ -161,6 +161,7 @@ function GameView({ session, onReturnToLobby }: GameViewProps) {
             session={session}
             myGrid={grid}
             myCellShipInfo={cellShipInfo}
+            placedShips={placedShips}
             applyIncomingShot={applyIncomingShot}
             onReset={handleReset}
           />

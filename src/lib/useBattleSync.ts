@@ -41,13 +41,25 @@ export function useBattleSync(
   const [myHits, setMyHits] = useState(0);
   const [theirHits, setTheirHits] = useState(0);
   const [isFiring, setIsFiring] = useState(false);
+  const [sunkOpponentCells, setSunkOpponentCells] = useState<Set<string>>(new Set());
+  const [sunkNotification, setSunkNotification] = useState<string | null>(null);
+  const [myShotCount, setMyShotCount] = useState(0);
 
   // Refy — unikają stale closure w callbackach Realtime
   const applyIncomingShotRef = useRef(applyIncomingShot);
   applyIncomingShotRef.current = applyIncomingShot;
   const opponentOccupiedRef = useRef<Set<string>>(new Set());
-  // Strzały już zastosowane optymistycznie — Realtime nie powinien ich ponownie naliczać
   const pendingShotsRef = useRef<Set<string>>(new Set());
+
+  // Dane statków przeciwnika — do wykrywania zatopień
+  const opponentShipsRef = useRef<PlacedShip[]>([]);
+  const sunkShipIndicesRef = useRef<Set<number>>(new Set());
+  const sunkOpponentCellsRef = useRef<Set<string>>(new Set());
+  const sunkNotifTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Czas bitwy
+  const battleStartTimeRef = useRef(Date.now());
+  const winnerNotifiedRef = useRef(false);
 
   const isMyTurn =
     (session.playerSlot === 'player1' && currentTurn === 'player1') ||
@@ -56,6 +68,39 @@ export function useBattleSync(
   const winner: 'me' | 'opponent' | null =
     myHits >= TOTAL_SHIP_CELLS ? 'me' :
     theirHits >= TOTAL_SHIP_CELLS ? 'opponent' : null;
+
+  // Wykrywanie zatopionych statków przeciwnika po każdej zmianie planszy
+  useEffect(() => {
+    if (opponentShipsRef.current.length === 0) return;
+    let hasNew = false;
+
+    opponentShipsRef.current.forEach((ship, idx) => {
+      if (sunkShipIndicesRef.current.has(idx)) return;
+      const allHit = ship.cells.every(([r, c]) => opponentGrid[r][c].state === 'hit');
+      if (!allHit) return;
+
+      sunkShipIndicesRef.current.add(idx);
+      ship.cells.forEach(([r, c]) => sunkOpponentCellsRef.current.add(`${r},${c}`));
+      hasNew = true;
+
+      const def = SHIP_DEFINITIONS.find(d => d.type === ship.type);
+      setSunkNotification(`Zatopiłeś! ${def?.name ?? ship.type}`);
+      if (sunkNotifTimerRef.current) clearTimeout(sunkNotifTimerRef.current);
+      sunkNotifTimerRef.current = setTimeout(() => setSunkNotification(null), 3000);
+    });
+
+    if (hasNew) setSunkOpponentCells(new Set(sunkOpponentCellsRef.current));
+  }, [opponentGrid]);
+
+  // Aktualizacja DB gdy wygrałem
+  useEffect(() => {
+    if (winner !== 'me' || winnerNotifiedRef.current) return;
+    winnerNotifiedRef.current = true;
+    supabase
+      .from('games')
+      .update({ status: 'finished', winner_id: session.playerId })
+      .eq('id', session.gameId);
+  }, [winner, session.gameId, session.playerId]);
 
   useEffect(() => {
     async function initialize() {
@@ -68,14 +113,16 @@ export function useBattleSync(
       if (game?.current_turn)
         setCurrentTurn(game.current_turn as 'player1' | 'player2');
 
-      // 2. Statki przeciwnika (potrzebne do rozstrzygania trafień)
+      // 2. Statki przeciwnika (potrzebne do rozstrzygania trafień i zatopień)
       const { data: boards } = await supabase
         .from('boards')
         .select('player_id, ships')
         .eq('game_id', session.gameId);
       const oppBoard = boards?.find(b => b.player_id !== session.playerId);
       if (oppBoard?.ships) {
-        opponentOccupiedRef.current = buildOccupiedSet(oppBoard.ships as PlacedShip[]);
+        const ships = oppBoard.ships as PlacedShip[];
+        opponentOccupiedRef.current = buildOccupiedSet(ships);
+        opponentShipsRef.current = ships;
       }
 
       // 3. Historia strzałów (obsługa reconnect)
@@ -89,10 +136,12 @@ export function useBattleSync(
         let grid = createEmptyGrid();
         let myHitCount = 0;
         let theirHitCount = 0;
+        let myShots = 0;
         for (const shot of shots as ShotRow[]) {
           if (shot.shooter_id === session.playerId) {
             grid = applyCell(grid, shot.target_row, shot.target_col, shot.is_hit ? 'hit' : 'miss');
             if (shot.is_hit) myHitCount++;
+            myShots++;
           } else {
             applyIncomingShotRef.current(shot.target_row, shot.target_col);
             if (shot.is_hit) theirHitCount++;
@@ -101,6 +150,7 @@ export function useBattleSync(
         setOpponentGrid(grid);
         setMyHits(myHitCount);
         setTheirHits(theirHitCount);
+        setMyShotCount(myShots);
       }
     }
 
@@ -174,6 +224,8 @@ export function useBattleSync(
       });
       if (error) throw error;
 
+      setMyShotCount(c => c + 1);
+
       // Trafienie: gracz strzela jeszcze raz (tura NIE zmienia się)
       // Pudło: tura przechodzi na przeciwnika
       if (!isHit) {
@@ -194,5 +246,10 @@ export function useBattleSync(
     }
   }, [session.gameId, session.playerId, session.playerSlot]);
 
-  return { opponentGrid, currentTurn, isMyTurn, winner, isFiring, fireAtOpponent };
+  return {
+    opponentGrid, currentTurn, isMyTurn, winner, isFiring, fireAtOpponent,
+    sunkOpponentCells, sunkNotification,
+    myShotCount, battleStartTime: battleStartTimeRef.current,
+    myHits, theirHits,
+  };
 }

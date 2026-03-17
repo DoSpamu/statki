@@ -162,11 +162,12 @@ interface CellProps {
   phase: Phase;
   cascadeDelay?: number;
   readonly?: boolean;
+  isSunk?: boolean;
   onClick: () => void;
   onHover: () => void;
 }
 
-function Cell({ state, shipInfo, isPreview, previewValid, isExcluded, phase, cascadeDelay, readonly, onClick, onHover }: CellProps) {
+function Cell({ state, shipInfo, isPreview, previewValid, isExcluded, phase, cascadeDelay, readonly, isSunk, onClick, onHover }: CellProps) {
   const isFinished = state === 'hit' || state === 'miss';
 
   const previewStyle = isPreview ? {
@@ -186,6 +187,10 @@ function Cell({ state, shipInfo, isPreview, previewValid, isExcluded, phase, cas
   const cascadeStyle = cascadeDelay !== undefined
     ? { animation: `cell-cascade 0.7s cubic-bezier(0.25,0.46,0.45,0.94) ${cascadeDelay}s forwards` }
     : undefined;
+  // Zatopiony statek — ciemniejszy, wyraźny kolor
+  const sunkStyle = isSunk && state === 'hit'
+    ? { backgroundColor: '#2a0000', boxShadow: 'inset 0 0 14px 4px #cc000033, 0 0 6px 2px #aa000044', animation: 'none' }
+    : undefined;
 
   return (
     <button
@@ -201,7 +206,7 @@ function Cell({ state, shipInfo, isPreview, previewValid, isExcluded, phase, cas
         state === 'empty' ? 'bf-empty' : '',
         isPreview ? 'transition-none' : '',
       ].join(' ')}
-      style={{ ...shipBgStyle, ...previewStyle, ...cascadeStyle }}
+      style={{ ...shipBgStyle, ...previewStyle, ...cascadeStyle, ...sunkStyle }}
       aria-label={state}
     >
       {/* SVG statku — tylko dla postawionych, nietrafionych */}
@@ -236,9 +241,14 @@ function Cell({ state, shipInfo, isPreview, previewValid, isExcluded, phase, cas
         </>
       )}
 
-      {state === 'hit' && (
+      {state === 'hit' && !isSunk && (
         <span className="relative z-10 text-[#ff9922] text-base font-black leading-none select-none drop-shadow-[0_0_6px_#ff6600]">
           ✕
+        </span>
+      )}
+      {state === 'hit' && isSunk && (
+        <span className="relative z-10 text-[#ff4444] text-base font-black leading-none select-none drop-shadow-[0_0_8px_#cc0000]">
+          ☠
         </span>
       )}
       {state === 'miss' && (
@@ -281,6 +291,7 @@ interface BoardProps {
   title?: string;
   exploding?: boolean;
   readonly?: boolean;
+  sunkCells?: Set<string>;
 }
 
 function buildPreviewSet(cells: [number, number][]): Set<string> {
@@ -290,7 +301,7 @@ function buildPreviewSet(cells: [number, number][]): Set<string> {
 export default function Board({
   grid, phase, cellShipInfo,
   previewCells, previewValid, excludedCells,
-  onCellClick, onCellHover, onBoardLeave, title, exploding, readonly,
+  onCellClick, onCellHover, onBoardLeave, title, exploding, readonly, sunkCells,
 }: BoardProps) {
   const previewSet = buildPreviewSet(previewCells);
 
@@ -341,6 +352,7 @@ export default function Board({
                       ? Math.sqrt((ri - 4.5) ** 2 + (ci - 4.5) ** 2) * 0.07
                       : undefined}
                     readonly={readonly}
+                    isSunk={sunkCells?.has(key)}
                     onClick={() => onCellClick(ri, ci)}
                     onHover={() => onCellHover(ri, ci)}
                   />

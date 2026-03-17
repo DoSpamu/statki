@@ -1,13 +1,16 @@
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Board from './Board';
 import VictoryOverlay from './VictoryOverlay';
 import { useBattleSync } from '../lib/useBattleSync';
-import type { BoardGrid, CellShipInfo } from '../types/board';
+import { SHIP_DEFINITIONS } from '../types/board';
+import type { BoardGrid, CellShipInfo, PlacedShip } from '../types/board';
 import type { GameSession } from '../types/lobby';
 
 interface BattleViewProps {
   session: GameSession;
   myGrid: BoardGrid;
   myCellShipInfo: Map<string, CellShipInfo>;
+  placedShips: PlacedShip[];
   applyIncomingShot: (row: number, col: number) => void;
   onReset: () => void;
 }
@@ -108,26 +111,86 @@ function Divider({ isMyTurn, myHits, theirHits, total }: {
   );
 }
 
+// ─── Toast zatopienia ─────────────────────────────────────────────────────────
+function SunkToast({ message, isEnemy }: { message: string; isEnemy: boolean }) {
+  return (
+    <div
+      className="fixed top-6 left-1/2 z-40 font-mono text-sm font-bold tracking-[0.3em] uppercase px-6 py-3 pointer-events-none"
+      style={{
+        transform: 'translateX(-50%)',
+        background: isEnemy ? 'rgba(10,30,5,0.92)' : 'rgba(30,5,5,0.92)',
+        border: `1px solid ${isEnemy ? '#a8cc3066' : '#cc333366'}`,
+        color: isEnemy ? '#a8cc30' : '#cc4444',
+        boxShadow: isEnemy ? '0 0 20px #6a9a2044' : '0 0 20px #cc222244',
+        animation: 'toast-slide 0.3s ease-out',
+      }}
+    >
+      {isEnemy ? '⊕ ' : '✕ '}{message}
+    </div>
+  );
+}
+
 // ─── BattleView ───────────────────────────────────────────────────────────────
 export default function BattleView({
-  session, myGrid, myCellShipInfo, applyIncomingShot, onReset,
+  session, myGrid, myCellShipInfo, placedShips, applyIncomingShot, onReset,
 }: BattleViewProps) {
   const {
     opponentGrid, isMyTurn, winner, isFiring,
-    fireAtOpponent,
+    fireAtOpponent, sunkOpponentCells, sunkNotification,
+    myShotCount, battleStartTime, myHits, theirHits,
   } = useBattleSync(session, applyIncomingShot);
 
   const TOTAL = 17; // 5+4+3+3+2
 
-  // Liczniki trafień wyliczone z siatek
-  const myHits   = opponentGrid.flat().filter(c => c.state === 'hit').length;
-  const theirHits = myGrid.flat().filter(c => c.state === 'hit').length;
+  // Wykrywanie zatopionych moich statków
+  const mySunkIndicesRef = useRef<Set<number>>(new Set());
+  const myToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [myToast, setMyToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    placedShips.forEach((ship, idx) => {
+      if (mySunkIndicesRef.current.has(idx)) return;
+      const allHit = ship.cells.every(([r, c]) => myGrid[r][c].state === 'hit');
+      if (!allHit) return;
+      mySunkIndicesRef.current.add(idx);
+      const def = SHIP_DEFINITIONS.find(d => d.type === ship.type);
+      setMyToast(`Zatopiony! ${def?.name ?? ship.type}`);
+      if (myToastTimerRef.current) clearTimeout(myToastTimerRef.current);
+      myToastTimerRef.current = setTimeout(() => setMyToast(null), 3000);
+    });
+  }, [myGrid, placedShips]);
+
+  // Komórki zatopionych moich statków
+  const sunkMyCells = useMemo(() => {
+    const cells = new Set<string>();
+    placedShips.forEach(ship => {
+      const allHit = ship.cells.every(([r, c]) => myGrid[r][c].state === 'hit');
+      if (allHit) ship.cells.forEach(([r, c]) => cells.add(`${r},${c}`));
+    });
+    return cells;
+  }, [myGrid, placedShips]);
+
+  // Czas trwania gry
+  const gameDurationMs = useMemo(
+    () => (winner ? Date.now() - battleStartTime : 0),
+    [winner, battleStartTime],
+  );
+
+  // Toast — priorytet: sunkNotification (mój strzał zatopił), myToast (mój statek zatopiony)
+  const activeToast = sunkNotification ?? myToast;
+  const isEnemyToast = !!sunkNotification;
 
   return (
     <>
       {winner && (
-        <VictoryOverlay isWinner={winner === 'me'} onReset={onReset} />
+        <VictoryOverlay
+          isWinner={winner === 'me'}
+          onReset={onReset}
+          stats={{ shots: myShotCount, durationMs: gameDurationMs }}
+        />
       )}
+
+      {activeToast && <SunkToast message={activeToast} isEnemy={isEnemyToast} />}
 
       <div className="flex flex-col items-center gap-2">
         {/* Baner tury */}
@@ -149,6 +212,7 @@ export default function BattleView({
               onCellClick={() => {}}
               onCellHover={() => {}}
               onBoardLeave={() => {}}
+              sunkCells={sunkMyCells}
               readonly
             />
           </div>
@@ -179,6 +243,7 @@ export default function BattleView({
               }}
               onCellHover={() => {}}
               onBoardLeave={() => {}}
+              sunkCells={sunkOpponentCells}
               readonly={!isMyTurn || isFiring}
             />
           </div>
@@ -193,6 +258,10 @@ export default function BattleView({
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 inline-block bg-[#1e0400]" style={{ boxShadow: 'inset 0 0 5px #ff220018' }} />
             trafiony
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 inline-block bg-[#2a0000]" style={{ boxShadow: 'inset 0 0 5px #cc000033' }} />
+            zatopiony
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 inline-block bg-[#0d1e26]" style={{ boxShadow: 'inset 0 0 5px #1a5577aa' }} />

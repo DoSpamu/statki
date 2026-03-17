@@ -1,9 +1,22 @@
+interface Stats {
+  shots: number;
+  durationMs: number;
+}
+
 interface VictoryOverlayProps {
   onReset: () => void;
   isWinner?: boolean;
+  stats?: Stats;
 }
 
-export default function VictoryOverlay({ onReset, isWinner = true }: VictoryOverlayProps) {
+function formatDuration(ms: number): string {
+  const totalSec = Math.round(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return min > 0 ? `${min}m ${sec}s` : `${sec}s`;
+}
+
+export default function VictoryOverlay({ onReset, isWinner = true, stats }: VictoryOverlayProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col items-center justify-center font-mono"
@@ -98,13 +111,32 @@ export default function VictoryOverlay({ onReset, isWinner = true }: VictoryOver
                 : 'drop-shadow(0 0 30px #0088ccaa)',
             }}
           >
-            {isWinner ? 'VICTORY' : 'DEFEAT'}
+            {isWinner ? 'WYGRAŁEŚ' : 'PRZEGRAŁEŚ'}
           </span>
           <span className="text-sm tracking-[0.35em] uppercase"
             style={{ color: isWinner ? '#a8cc30' : '#4a8aaa' }}>
             {isWinner ? 'All enemy vessels destroyed' : 'Your fleet has been destroyed'}
           </span>
         </div>
+
+        {/* Statystyki gry */}
+        {stats && (
+          <div className="flex gap-8 text-center">
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-[9px] tracking-[0.4em] uppercase" style={{ color: '#4a6a18' }}>Strzały</span>
+              <span className="text-2xl font-black" style={{ color: isWinner ? '#a8cc30' : '#6a9a20' }}>
+                {stats.shots}
+              </span>
+            </div>
+            <div className="w-px bg-[#2a3a18]" />
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-[9px] tracking-[0.4em] uppercase" style={{ color: '#4a6a18' }}>Czas bitwy</span>
+              <span className="text-2xl font-black" style={{ color: isWinner ? '#a8cc30' : '#6a9a20' }}>
+                {formatDuration(stats.durationMs)}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Divider taktyczny */}
         <div className="flex items-center gap-4 w-full">
@@ -132,7 +164,7 @@ export default function VictoryOverlay({ onReset, isWinner = true }: VictoryOver
             (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 0 12px #6a9a2055, inset 0 0 8px transparent';
           }}
         >
-          ▶ New Game
+          ▶ NOWA GRA
         </button>
       </div>
     </div>
