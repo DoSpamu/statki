@@ -18,7 +18,7 @@ const STATE_CSS: Record<CellState, string> = {
   miss:  'bf-miss',
 };
 
-// ─── SVG nakładka statku ─────────────────────────────────────────────────────
+// ─── SVG nakładka statku — widok z góry, realistyczna sylwetka ───────────────
 function ShipDecal({ type, callsign, orientation, partIndex, shipSize }: CellShipInfo) {
   const { accent } = SHIP_PALETTE[type];
   const isHead   = partIndex === 0;
@@ -27,98 +27,119 @@ function ShipDecal({ type, callsign, orientation, partIndex, shipSize }: CellShi
   const isHoriz  = orientation === 'horizontal';
   const isCenter = partIndex === Math.floor(shipSize / 2);
 
-  // Granice kadłuba wzdłuż osi statku (x1→x2 lub y1→y2)
-  const spineStart = isHead && !isSolo ? 12 : 0;
-  const spineEnd   = isTail && !isSolo ? 36 : 48;
+  // Kadłub zajmuje całe pole; dziób/rufa mają zaokrąglone końce
+  // Współrzędne dla orientacji poziomej (obrót SVG dla pionowej)
+  const hullY1 = 18, hullY2 = 30; // szerokość kadłuba (symetrycznie)
+  const hullMid = 24;
+
+  // Krawędzie dzioba i rufy (zaostrzenie)
+  const bowX   = isHead  ? (isSolo ? 6  : 2)  : 0;
+  const sternX = isTail  ? (isSolo ? 42 : 46) : 48;
+
+  // Wielokąt kadłuba — trapez ze zwężeniem na dziobowej stronie
+  const hullPoly = isHead && !isSolo
+    ? `${bowX},${hullMid} 6,${hullY1} 48,${hullY1} 48,${hullY2} 6,${hullY2}`
+    : isTail && !isSolo
+    ? `0,${hullY1} ${sternX},${hullY1} ${sternX - 4},${hullMid} ${sternX},${hullY2} 0,${hullY2}`
+    : isSolo
+    ? `${bowX},${hullMid} 8,${hullY1} ${sternX - 4},${hullY1} ${sternX},${hullMid} ${sternX - 4},${hullY2} 8,${hullY2}`
+    : `0,${hullY1} 48,${hullY1} 48,${hullY2} 0,${hullY2}`;
 
   return (
     <svg
       width="48" height="48" viewBox="0 0 48 48"
       className="absolute inset-0 w-full h-full pointer-events-none"
-      style={{ overflow: 'visible' }}
+      style={isHoriz ? undefined : { transform: 'rotate(90deg)', transformOrigin: '50% 50%' }}
     >
-      {isHoriz ? (
+      {/* ── Kadłub główny ── */}
+      <polygon points={hullPoly} fill={accent} opacity={0.18} />
+      <polygon points={hullPoly} fill="none" stroke={accent} strokeWidth={1.2} opacity={0.55} />
+
+      {/* ── Linia kilu (oś środkowa) ── */}
+      <line x1={0} y1={hullMid} x2={48} y2={hullMid}
+        stroke={accent} strokeWidth={0.8} opacity={0.3} />
+
+      {/* ── Pokład — linia wzdłuż statku ── */}
+      <line x1={isHead ? bowX + 4 : 0} y1={hullMid}
+            x2={isTail ? sternX - 4 : 48} y2={hullMid}
+        stroke={accent} strokeWidth={2} opacity={0.7} />
+
+      {/* ── Dziób — zaostrzony trójkąt ── */}
+      {(isHead || isSolo) && (
+        <polygon
+          points={`${bowX},${hullMid} 10,${hullY1 + 1} 10,${hullY2 - 1}`}
+          fill={accent} opacity={0.75}
+        />
+      )}
+
+      {/* ── Rufa — śruba napędowa ── */}
+      {(isTail || isSolo) && (
         <>
-          {/* Kadłub — prostokąt wzdłuż osi poziomej */}
-          <rect x={spineStart} y={17} width={spineEnd - spineStart} height={14}
-            fill={accent} opacity={0.22} />
-
-          {/* Kręgosłup (oś statku) */}
-          <line x1={spineStart} y1={24} x2={spineEnd} y2={24}
-            stroke={accent} strokeWidth={2.5} />
-
-          {/* Żebra kadłuba */}
-          {[16, 28, 40].map(x =>
-            x > spineStart && x < spineEnd
-              ? <line key={x} x1={x} y1={19} x2={x} y2={29}
-                  stroke={accent} strokeWidth={1} opacity={0.45} />
-              : null
-          )}
-
-          {/* Dziób — trójkąt wskazujący w lewo */}
-          {(isHead || isSolo) && (
-            <polygon points={`${isSolo ? 6 : 4},24 12,17 12,31`}
-              fill={accent} opacity={0.85} />
-          )}
-
-          {/* Rufa — płyta z kratownicą */}
-          {(isTail || isSolo) && (
-            <>
-              <rect x={isSolo ? 36 : 36} y={16} width={6} height={16}
-                fill={accent} opacity={0.75} rx={1} />
-              <line x1={isSolo ? 37 : 37} y1={20} x2={isSolo ? 37 : 37} y2={28}
-                stroke={accent} strokeWidth={1} opacity={0.4} />
-              <line x1={isSolo ? 40 : 40} y1={20} x2={isSolo ? 40 : 40} y2={28}
-                stroke={accent} strokeWidth={1} opacity={0.4} />
-            </>
-          )}
-        </>
-      ) : (
-        <>
-          {/* Kadłub pionowy */}
-          <rect x={17} y={spineStart} width={14} height={spineEnd - spineStart}
-            fill={accent} opacity={0.22} />
-
-          {/* Kręgosłup pionowy */}
-          <line x1={24} y1={spineStart} x2={24} y2={spineEnd}
-            stroke={accent} strokeWidth={2.5} />
-
-          {/* Żebra */}
-          {[16, 28, 40].map(y =>
-            y > spineStart && y < spineEnd
-              ? <line key={y} x1={19} y1={y} x2={29} y2={y}
-                  stroke={accent} strokeWidth={1} opacity={0.45} />
-              : null
-          )}
-
-          {/* Dziób — trójkąt w górę */}
-          {(isHead || isSolo) && (
-            <polygon points={`24,${isSolo ? 6 : 4} 17,12 31,12`}
-              fill={accent} opacity={0.85} />
-          )}
-
-          {/* Rufa — płyta dolna */}
-          {(isTail || isSolo) && (
-            <>
-              <rect x={16} y={isSolo ? 36 : 36} width={16} height={6}
-                fill={accent} opacity={0.75} rx={1} />
-              <line x1={20} y1={isSolo ? 37 : 37} x2={28} y2={isSolo ? 37 : 37}
-                stroke={accent} strokeWidth={1} opacity={0.4} />
-              <line x1={20} y1={isSolo ? 40 : 40} x2={28} y2={isSolo ? 40 : 40}
-                stroke={accent} strokeWidth={1} opacity={0.4} />
-            </>
-          )}
+          <rect x={sternX - 6} y={hullY1 + 2} width={5} height={hullY2 - hullY1 - 4}
+            fill={accent} opacity={0.5} rx={1} />
+          {/* Śruba: dwa łuki symbolizujące łopaty */}
+          <circle cx={sternX - 3} cy={hullMid - 3} r={2}
+            fill="none" stroke={accent} strokeWidth={1} opacity={0.6} />
+          <circle cx={sternX - 3} cy={hullMid + 3} r={2}
+            fill="none" stroke={accent} strokeWidth={1} opacity={0.6} />
         </>
       )}
 
-      {/* Oznaczenie callsign na środkowym polu statku */}
+      {/* ── Nadbudówka zależna od typu statku ── */}
+
+      {/* Lotniskowiec — pas startowy wzdłuż pokładu */}
+      {type === 'carrier' && isCenter && (
+        <>
+          <rect x={10} y={hullY1} width={28} height={3}
+            fill={accent} opacity={0.35} />
+          <line x1={12} y1={hullY1 + 1.5} x2={36} y2={hullY1 + 1.5}
+            stroke={accent} strokeWidth={0.6} strokeDasharray="3 2" opacity={0.7} />
+        </>
+      )}
+
+      {/* Pancernik — 2 wieżyczki armatnie */}
+      {type === 'battleship' && (isHead || isTail) && (
+        <circle cx={isHead ? 16 : 32} cy={hullMid} r={4}
+          fill={accent} opacity={0.45}
+          stroke={accent} strokeWidth={0.8}
+        />
+      )}
+      {type === 'battleship' && isCenter && (
+        <circle cx={24} cy={hullMid} r={3}
+          fill={accent} opacity={0.35}
+          stroke={accent} strokeWidth={0.8}
+        />
+      )}
+
+      {/* Krążownik — mostek dowodzenia (prostokąt na środku) */}
+      {type === 'cruiser' && isCenter && (
+        <rect x={16} y={hullY1 + 2} width={16} height={hullY2 - hullY1 - 4}
+          fill={accent} opacity={0.4} rx={1}
+          stroke={accent} strokeWidth={0.7}
+        />
+      )}
+
+      {/* Niszczyciel — linia torpedowa + sonar */}
+      {type === 'destroyer' && isCenter && (
+        <>
+          <circle cx={24} cy={hullMid} r={5}
+            fill="none" stroke={accent} strokeWidth={0.9} opacity={0.45}
+            strokeDasharray="2.5 2"
+          />
+          <circle cx={24} cy={hullMid} r={1.5}
+            fill={accent} opacity={0.6}
+          />
+        </>
+      )}
+
+      {/* ── Callsign na środku ── */}
       {isCenter && (
         <text
-          x={24} y={27}
+          x={24} y={hullY2 + 9}
           textAnchor="middle"
-          fontSize={shipSize === 2 ? 7 : 8}
+          fontSize={6}
           fill={accent}
-          opacity={0.9}
+          opacity={0.75}
           fontFamily="monospace"
           fontWeight="bold"
           letterSpacing={0.5}
@@ -139,11 +160,12 @@ interface CellProps {
   previewValid: boolean;
   isExcluded: boolean;
   phase: Phase;
+  cascadeDelay?: number;
   onClick: () => void;
   onHover: () => void;
 }
 
-function Cell({ state, shipInfo, isPreview, previewValid, isExcluded, phase, onClick, onHover }: CellProps) {
+function Cell({ state, shipInfo, isPreview, previewValid, isExcluded, phase, cascadeDelay, onClick, onHover }: CellProps) {
   const isFinished = state === 'hit' || state === 'miss';
 
   const previewStyle = isPreview ? {
@@ -160,6 +182,9 @@ function Cell({ state, shipInfo, isPreview, previewValid, isExcluded, phase, onC
     : undefined;
 
   const showExcluded = isExcluded && state === 'empty' && phase === 'placement' && !isPreview;
+  const cascadeStyle = cascadeDelay !== undefined
+    ? { animation: `cell-cascade 0.7s cubic-bezier(0.25,0.46,0.45,0.94) ${cascadeDelay}s forwards` }
+    : undefined;
 
   return (
     <button
@@ -175,7 +200,7 @@ function Cell({ state, shipInfo, isPreview, previewValid, isExcluded, phase, onC
         state === 'empty' ? 'bf-empty' : '',
         isPreview ? 'transition-none' : '',
       ].join(' ')}
-      style={{ ...shipBgStyle, ...previewStyle }}
+      style={{ ...shipBgStyle, ...previewStyle, ...cascadeStyle }}
       aria-label={state}
     >
       {/* SVG statku — tylko dla postawionych, nietrafionych */}
@@ -253,6 +278,7 @@ interface BoardProps {
   onCellHover: (row: number, col: number) => void;
   onBoardLeave: () => void;
   title?: string;
+  exploding?: boolean;
 }
 
 function buildPreviewSet(cells: [number, number][]): Set<string> {
@@ -262,7 +288,7 @@ function buildPreviewSet(cells: [number, number][]): Set<string> {
 export default function Board({
   grid, phase, cellShipInfo,
   previewCells, previewValid, excludedCells,
-  onCellClick, onCellHover, onBoardLeave, title,
+  onCellClick, onCellHover, onBoardLeave, title, exploding,
 }: BoardProps) {
   const previewSet = buildPreviewSet(previewCells);
 
@@ -309,6 +335,9 @@ export default function Board({
                     previewValid={previewValid}
                     isExcluded={excludedCells.has(key)}
                     phase={phase}
+                    cascadeDelay={exploding
+                      ? Math.sqrt((ri - 4.5) ** 2 + (ci - 4.5) ** 2) * 0.07
+                      : undefined}
                     onClick={() => onCellClick(ri, ci)}
                     onHover={() => onCellHover(ri, ci)}
                   />

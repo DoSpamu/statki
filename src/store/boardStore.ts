@@ -91,6 +91,7 @@ function generateRandomPlacement(): { ships: PlacedShip[], grid: BoardGrid } {
 export function useBoardStore() {
   const [grid, setGrid]               = useState<BoardGrid>(createEmptyBoard);
   const [phase, setPhase]             = useState<Phase>('placement');
+  const [winner, setWinner]           = useState<'player1' | null>(null);
   const [placedShips, setPlacedShips] = useState<PlacedShip[]>([]);
   const [selectedShip, setSelectedShip] = useState<ShipType | null>('carrier');
   const [orientation, setOrientation] = useState<Orientation>('horizontal');
@@ -275,18 +276,25 @@ export function useBoardStore() {
     setHoverCell(null);
   }, []);
 
+  // Łączna liczba pól zajętych przez statki (do wykrywania zwycięstwa)
+  const totalShipCells = SHIP_DEFINITIONS.reduce((sum, d) => sum + d.size * d.count, 0);
+
   // Kliknięcie podczas walki — strzał
   function fireShot(row: number, col: number) {
     setGrid(prev => {
       const current = prev[row][col].state;
       if (current !== 'empty' && current !== 'ship') return prev;
-      return prev.map((r, ri) =>
+      const newGrid = prev.map((r, ri) =>
         r.map((c, ci) =>
           ri === row && ci === col
-            ? { ...c, state: current === 'ship' ? 'hit' : 'miss' }
+            ? { ...c, state: (current === 'ship' ? 'hit' : 'miss') as CellState }
             : c
         )
       );
+      // Sprawdź wygraną — policz trafienia
+      const hits = newGrid.flat().filter(c => c.state === 'hit').length;
+      if (hits >= totalShipCells) setWinner('player1');
+      return newGrid;
     });
   }
 
@@ -297,8 +305,20 @@ export function useBoardStore() {
 
   const allShipsPlaced = placedShips.length >= SHIP_DEFINITIONS.reduce((s, d) => s + d.count, 0);
 
+  // Reset gry do stanu początkowego
+  function resetGame() {
+    setGrid(createEmptyBoard());
+    setPhase('placement');
+    setWinner(null);
+    setPlacedShips([]);
+    setSelectedShip('carrier');
+    setOrientation('horizontal');
+    setHoverCell(null);
+    keyboardCursorRef.current = false;
+  }
+
   return {
-    grid, phase,
+    grid, phase, winner,
     selectedShip, orientation,
     previewCells, previewValid,
     excludedCells, cellShipInfo,
@@ -307,5 +327,6 @@ export function useBoardStore() {
     selectShip, toggleOrientation,
     confirmReady, randomizePlacement,
     handleCellClick, handleCellHover, handleBoardLeave,
+    resetGame,
   };
 }

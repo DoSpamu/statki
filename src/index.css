@@ -59,3 +59,63 @@
 /* ─── Ramka taktyczna HUD ────────────────────────────────────────────────── */
 
 .bf-hud { animation: bf-hud-in 0.9s ease-out forwards; }
+
+/* ─── Animacja wygranej — eksplozja nuklearna ────────────────────────────── */
+
+/* Biały błysk — pierwsze 0.3s */
+@keyframes nuke-flash {
+  0%   { opacity: 0; }
+  10%  { opacity: 1; }
+  60%  { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+/* Kula ognia */
+@keyframes nuke-fireball {
+  0%   { transform: scale(0);    opacity: 1;   filter: brightness(4); }
+  25%  { transform: scale(1);    opacity: 1;   filter: brightness(2.5); }
+  60%  { transform: scale(1.15); opacity: 0.9; filter: brightness(1.4); }
+  100% { transform: scale(1.3);  opacity: 0;   filter: brightness(1); }
+}
+
+/* Pierścień uderzeniowy */
+@keyframes nuke-shockwave {
+  0%   { transform: scale(0.1); opacity: 0.9; }
+  60%  { transform: scale(1.8); opacity: 0.4; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+/* Słup dymu — rośnie ku górze */
+@keyframes nuke-stem {
+  0%   { transform: scaleY(0); opacity: 0.9; transform-origin: bottom; }
+  50%  { transform: scaleY(1); opacity: 0.85; transform-origin: bottom; }
+  100% { transform: scaleY(1); opacity: 0.7; transform-origin: bottom; }
+}
+
+/* Czapka grzyba — rozpycha się na boki */
+@keyframes nuke-cap {
+  0%   { transform: scale(0) translateY(20px); opacity: 0; }
+  40%  { transform: scale(0.4) translateY(10px); opacity: 1; }
+  80%  { transform: scale(1) translateY(0);     opacity: 0.95; }
+  100% { transform: scale(1.1) translateY(-4px); opacity: 0.9; }
+}
+
+/* Tekst wygranej */
+@keyframes nuke-text {
+  0%   { opacity: 0; transform: scale(0.6) translateY(10px); letter-spacing: 0.3em; }
+  50%  { opacity: 1; transform: scale(1.05) translateY(0);   letter-spacing: 0.5em; }
+  100% { opacity: 1; transform: scale(1) translateY(0);      letter-spacing: 0.45em; }
+}
+
+/* Kaskadowa eksplozja pól planszy */
+@keyframes cell-cascade {
+  0%   { transform: scale(1);    background-color: inherit; }
+  20%  { transform: scale(1.4);  background-color: #ffee00; box-shadow: 0 0 20px 8px #ff950088; }
+  50%  { transform: scale(1.15); background-color: #ff3300; }
+  80%  { transform: scale(1.05); background-color: #881000; }
+  100% { transform: scale(1);    background-color: #1e0400; box-shadow: inset 0 0 12px 3px #ff220020; }
+}
+
+.cell-exploding {
+  animation: cell-cascade 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}

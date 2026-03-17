@@ -1,6 +1,7 @@
 import Board from './components/Board';
 import ShipPanel from './components/ShipPanel';
 import KeyboardLegend from './components/KeyboardLegend';
+import VictoryOverlay from './components/VictoryOverlay';
 import { useBoardStore } from './store/boardStore';
 import { useSupabaseStatus } from './lib/useSupabaseStatus';
 
@@ -16,7 +17,7 @@ function BlinkCursor() {
 export default function App() {
   const { status, gamesCount, errorMessage } = useSupabaseStatus();
   const {
-    grid, phase,
+    grid, phase, winner,
     selectedShip, orientation,
     previewCells, previewValid,
     excludedCells, cellShipInfo,
@@ -24,9 +25,12 @@ export default function App() {
     selectShip, toggleOrientation,
     confirmReady, randomizePlacement,
     handleCellClick, handleCellHover, handleBoardLeave,
+    resetGame,
   } = useBoardStore();
 
   return (
+    <>
+    {winner && <VictoryOverlay onReset={resetGame} />}
     <div
       className="min-h-screen flex flex-col items-center justify-center gap-6 p-8 font-mono"
       style={{ background: 'radial-gradient(ellipse at center, #0e1508 0%, #060905 100%)' }}
@@ -105,6 +109,7 @@ export default function App() {
             onCellHover={handleCellHover}
             onBoardLeave={handleBoardLeave}
             title="Tactical Grid — Sector Alpha"
+            exploding={!!winner}
           />
 
           {/* Legenda dolna */}
@@ -137,5 +142,6 @@ export default function App() {
         <span>AWAITING INPUT</span>
       </div>
     </div>
+    </>
   );
 }
