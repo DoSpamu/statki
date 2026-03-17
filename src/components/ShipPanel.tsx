@@ -85,25 +85,30 @@ interface ShipPanelProps {
   selectedShip: ShipType | null;
   orientation: Orientation;
   phase: Phase;
+  allShipsPlaced: boolean;
   remainingShips: (typeof SHIP_DEFINITIONS[number] & { placed: number; remaining: number })[];
   onSelectShip: (type: ShipType) => void;
   onToggleOrientation: () => void;
+  onConfirmReady: () => void;
+  onRandomize: () => void;
 }
 
 export default function ShipPanel({
-  selectedShip, orientation, phase,
+  selectedShip, orientation, phase, allShipsPlaced,
   remainingShips,
-  onSelectShip, onToggleOrientation,
+  onSelectShip, onToggleOrientation, onConfirmReady, onRandomize,
 }: ShipPanelProps) {
-  const allDeployed = phase === 'battle';
+  const inBattle     = phase === 'battle';
   const deployedCount = remainingShips.reduce((s, d) => s + d.placed, 0);
   const totalCount    = remainingShips.reduce((s, d) => s + d.count, 0);
+  const remaining     = totalCount - deployedCount;
 
   return (
     <div className="bf-hud flex flex-col gap-2 w-52">
       {/* Tytuł panelu */}
       <div className="flex items-center gap-2 pb-1 border-b border-[#2a3a18]">
-        <div className="w-1.5 h-1.5 bg-[#a8cc30] rounded-full" style={{ animation: allDeployed ? 'none' : 'bf-pulse 1.5s ease-in-out infinite' }} />
+        <div className="w-1.5 h-1.5 bg-[#a8cc30] rounded-full"
+          style={{ animation: inBattle ? 'none' : 'bf-pulse 1.5s ease-in-out infinite' }} />
         <span className="text-[#a8cc30] text-[10px] font-mono font-bold tracking-[0.2em] uppercase">
           Fleet Deployment
         </span>
@@ -111,7 +116,7 @@ export default function ShipPanel({
 
       {/* Status */}
       <div className="flex justify-between items-center text-[9px] font-mono text-[#4a6a20] tracking-widest uppercase">
-        <span>{allDeployed ? '● BATTLE READY' : '○ DEPLOYING'}</span>
+        <span>{inBattle ? '● BATTLE READY' : allShipsPlaced ? '◈ FLEET READY' : '○ DEPLOYING'}</span>
         <span>{deployedCount}/{totalCount}</span>
       </div>
 
@@ -135,8 +140,8 @@ export default function ShipPanel({
         ))}
       </div>
 
-      {/* Przycisk OBRÓĆ */}
-      {!allDeployed && (
+      {/* Przycisk OBRÓĆ — tylko gdy trwa rozstawianie i nie wszystko postawione */}
+      {!inBattle && !allShipsPlaced && (
         <div className="mt-2">
           <button
             onClick={onToggleOrientation}
@@ -185,11 +190,68 @@ export default function ShipPanel({
         </div>
       )}
 
-      {/* Panel walki — widoczny po rozstawieniu */}
-      {allDeployed && (
+      {/* ── Przyciski akcji ── */}
+      {!inBattle && (
+        <div className="mt-1 flex flex-col gap-2">
+
+          {/* GOTOWY — aktywny tylko gdy wszystkie statki postawione */}
+          <button
+            onClick={onConfirmReady}
+            disabled={!allShipsPlaced}
+            className={[
+              'w-full py-3 px-3 border-2 font-mono font-black text-sm tracking-[0.2em]',
+              'transition-all duration-150 focus:outline-none focus:ring-2',
+              allShipsPlaced
+                ? [
+                    'border-[#a8cc30] bg-[#182808]',
+                    'hover:bg-[#243e10] hover:border-[#c8f050]',
+                    'active:scale-[0.98]',
+                    'text-[#c8f050] focus:ring-[#a8cc30]',
+                    'shadow-[0_0_16px_rgba(168,204,48,0.3)]',
+                  ].join(' ')
+                : [
+                    'border-[#2a3a18] bg-[#0a0e06]',
+                    'text-[#2a3e18] cursor-not-allowed',
+                    'focus:ring-[#2a3a18]',
+                  ].join(' '),
+            ].join(' ')}
+          >
+            <div className="flex items-center justify-center gap-2">
+              {allShipsPlaced
+                ? <span style={{ animation: 'bf-pulse 0.9s ease-in-out infinite' }}>▶</span>
+                : <span>▷</span>
+              }
+              <span>GOTOWY</span>
+            </div>
+            {!allShipsPlaced && (
+              <div className="text-[9px] font-normal tracking-widest mt-0.5 text-[#2a3e18]">
+                POZOSTAŁO: {remaining} {remaining === 1 ? 'JEDNOSTKA' : 'JEDNOSTKI'}
+              </div>
+            )}
+          </button>
+
+          {/* LOSOWE ROZMIESZCZENIE */}
+          <button
+            onClick={onRandomize}
+            className={[
+              'w-full py-2 px-3 border font-mono text-[10px] tracking-[0.15em]',
+              'border-[#3a5a1a] bg-[#0a0e06] text-[#5a8a28]',
+              'hover:border-[#6a9a20] hover:bg-[#0f1608] hover:text-[#8ab832]',
+              'active:scale-[0.98] transition-all duration-100',
+              'focus:outline-none focus:ring-1 focus:ring-[#6a9a20]',
+            ].join(' ')}
+          >
+            <span className="mr-1.5">⚡</span>LOSOWE ROZMIESZCZENIE
+          </button>
+
+        </div>
+      )}
+
+      {/* Panel walki — widoczny po potwierdzeniu gotowości */}
+      {inBattle && (
         <div className="mt-2 border border-[#4a8a20] bg-[#0a1206] p-3 text-center">
           <div className="text-[#a8cc30] text-[10px] font-mono font-bold tracking-widest uppercase mb-1">
-            ◈ FLEET READY
+            ◈ BATTLE PHASE
           </div>
           <div className="text-[#4a6a20] text-[9px] font-mono tracking-wider">
             Click grid to fire

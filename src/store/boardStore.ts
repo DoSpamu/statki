@@ -57,6 +57,37 @@ function buildExcludedSet(placedShips: { cells: [number, number][] }[]): Set<str
   return excluded;
 }
 
+// Generuje losowe, poprawne rozmieszczenie wszystkich statków
+function generateRandomPlacement(): { ships: PlacedShip[], grid: BoardGrid } {
+  const grid = createEmptyBoard();
+  const ships: PlacedShip[] = [];
+  const occupied = new Set<string>();
+
+  for (const def of SHIP_DEFINITIONS) {
+    for (let n = 0; n < def.count; n++) {
+      let placed = false;
+      // Maksymalnie 1000 prób na statek (w praktyce kilka wystarcza)
+      for (let attempt = 0; attempt < 1000 && !placed; attempt++) {
+        const orientation: Orientation = Math.random() < 0.5 ? 'horizontal' : 'vertical';
+        const row = Math.floor(Math.random() * 10);
+        const col = Math.floor(Math.random() * 10);
+        const cells = getPreviewCells(row, col, def.size, orientation);
+        if (isValidPlacement(cells, occupied)) {
+          ships.push({ type: def.type, cells });
+          for (const [r, c] of cells) {
+            occupied.add(`${r},${c}`);
+            grid[r][c] = { row: r, col: c, state: 'ship' };
+          }
+          placed = true;
+        }
+      }
+      // Jeśli nie udało się — rekurencja (bardzo rzadki przypadek)
+      if (!placed) return generateRandomPlacement();
+    }
+  }
+  return { ships, grid };
+}
+
 export function useBoardStore() {
   const [grid, setGrid]               = useState<BoardGrid>(createEmptyBoard);
   const [phase, setPhase]             = useState<Phase>('placement');
@@ -153,14 +184,28 @@ export function useBoardStore() {
       setSelectedShip(next?.type ?? null);
     }
 
-    // Sprawdź czy wszystkie statki zostały postawione
+    // Po postawieniu wszystkich statków odznacz selekcję — gracz musi kliknąć GOTOWY
     const totalToPlace = SHIP_DEFINITIONS.reduce((sum, d) => sum + d.count, 0);
     if (newPlaced.length >= totalToPlace) {
-      setPhase('battle');
       setSelectedShip(null);
       setHoverCell(null);
     }
   }
+
+  // Gracz potwierdza gotowość — przejście do fazy walki
+  const confirmReady = useCallback(() => {
+    const totalToPlace = SHIP_DEFINITIONS.reduce((sum, d) => sum + d.count, 0);
+    if (placedShips.length >= totalToPlace) setPhase('battle');
+  }, [placedShips.length]);
+
+  // Losowe rozmieszczenie wszystkich statków (z zachowaniem reguł sąsiedztwa)
+  const randomizePlacement = useCallback(() => {
+    const result = generateRandomPlacement();
+    setGrid(result.grid);
+    setPlacedShips(result.ships);
+    setSelectedShip(null);
+    setHoverCell(null);
+  }, []);
 
   // Kliknięcie podczas walki — strzał
   function fireShot(row: number, col: number) {
@@ -182,13 +227,17 @@ export function useBoardStore() {
     else fireShot(row, col);
   }
 
+  const allShipsPlaced = placedShips.length >= SHIP_DEFINITIONS.reduce((s, d) => s + d.count, 0);
+
   return {
     grid, phase,
     selectedShip, orientation,
     previewCells, previewValid,
     excludedCells,
     remainingShips,
+    allShipsPlaced,
     selectShip, toggleOrientation,
+    confirmReady, randomizePlacement,
     handleCellClick, handleCellHover, handleBoardLeave,
   };
 }

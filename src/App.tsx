@@ -17,8 +17,9 @@ export default function App() {
     selectedShip, orientation,
     previewCells, previewValid,
     excludedCells,
-    remainingShips,
+    remainingShips, allShipsPlaced,
     selectShip, toggleOrientation,
+    confirmReady, randomizePlacement,
     handleCellClick, handleCellHover, handleBoardLeave,
   } = useBoardStore();
 
@@ -56,9 +57,12 @@ export default function App() {
           selectedShip={selectedShip}
           orientation={orientation}
           phase={phase}
+          allShipsPlaced={allShipsPlaced}
           remainingShips={remainingShips}
           onSelectShip={selectShip}
           onToggleOrientation={toggleOrientation}
+          onConfirmReady={confirmReady}
+          onRandomize={randomizePlacement}
         />
 
         <div className="flex flex-col items-center gap-3">
