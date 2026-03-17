@@ -1,15 +1,18 @@
 import type { BoardGrid, CellState } from '../types/board';
 
-// Etykiety wierszy i kolumn
 const ROW_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 const COL_LABELS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 
-// Klasy Tailwind dla każdego stanu pola
+// Kolory inspirowane Breaking Bad:
+//   empty  → meth blue (ciemny niebieskozielony)
+//   ship   → hazmat (oliwkowy kombinezon)
+//   hit    → spalony pomarańczowo-czerwony (eksplozja laboratorium)
+//   miss   → pustynny piasek (pustynia Nowego Meksyku)
 const STATE_CLASSES: Record<CellState, string> = {
-  empty: 'bg-blue-600 hover:bg-blue-400',
-  ship:  'bg-gray-500 hover:bg-gray-400',
-  hit:   'bg-red-600 cursor-default',
-  miss:  'bg-white cursor-default',
+  empty: 'bg-[#1a3d52] hover:bg-[#2e6e8a] border-[#0e2233]',
+  ship:  'bg-[#3b4a1c] hover:bg-[#566a28] border-[#1e2a0a]',
+  hit:   'bg-[#7a1e00] border-[#3d0e00] cursor-default',
+  miss:  'bg-[#c4a46b] border-[#8a6e3a] cursor-default',
 };
 
 interface CellProps {
@@ -25,19 +28,20 @@ function Cell({ state, onClick }: CellProps) {
       onClick={onClick}
       disabled={isFinished}
       className={[
-        'w-9 h-9 border border-blue-900 flex items-center justify-center',
-        'transition-colors duration-100 focus:outline-none focus:ring-2 focus:ring-yellow-400',
+        'w-12 h-12 border-2 flex items-center justify-center',
+        'transition-colors duration-100',
+        'focus:outline-none focus:ring-2 focus:ring-[#e8b84b] focus:z-10',
         STATE_CLASSES[state],
       ].join(' ')}
       aria-label={state}
     >
-      {/* Krzyżyk na pudle */}
+      {/* Krzyżyk na pudle — ciemnobrązowy jak cień na pustyni */}
       {state === 'miss' && (
-        <span className="text-gray-400 text-lg font-bold leading-none select-none">✕</span>
+        <span className="text-[#5a3a10] text-xl font-black leading-none select-none">✕</span>
       )}
-      {/* Płomień na trafieniu */}
+      {/* Trafienie — jaskrawożółty krzyk jak ostrzeżenie Heisenberga */}
       {state === 'hit' && (
-        <span className="text-yellow-300 text-base leading-none select-none">💥</span>
+        <span className="text-[#e8b84b] text-xl font-black leading-none select-none">☢</span>
       )}
     </button>
   );
@@ -51,18 +55,20 @@ interface BoardProps {
 
 export default function Board({ grid, onCellClick, title }: BoardProps) {
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-3">
       {title && (
-        <h2 className="text-white text-xl font-semibold tracking-wide">{title}</h2>
+        <h2 className="text-[#e8b84b] text-xl font-bold tracking-widest uppercase">
+          {title}
+        </h2>
       )}
 
       <div className="inline-block">
         {/* Nagłówek kolumn */}
-        <div className="flex ml-9">
+        <div className="flex ml-12">
           {COL_LABELS.map(label => (
             <div
               key={label}
-              className="w-9 h-7 flex items-center justify-center text-blue-300 text-xs font-medium"
+              className="w-12 h-8 flex items-center justify-center text-[#e8b84b] text-sm font-bold"
             >
               {label}
             </div>
@@ -73,7 +79,7 @@ export default function Board({ grid, onCellClick, title }: BoardProps) {
         {grid.map((row, ri) => (
           <div key={ri} className="flex">
             {/* Etykieta wiersza */}
-            <div className="w-9 h-9 flex items-center justify-center text-blue-300 text-xs font-medium">
+            <div className="w-12 h-12 flex items-center justify-center text-[#e8b84b] text-sm font-bold">
               {ROW_LABELS[ri]}
             </div>
 
